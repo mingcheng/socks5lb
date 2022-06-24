@@ -1,4 +1,3 @@
-image: golang:1.18
 
 stages:
   - build
@@ -11,6 +10,7 @@ stages:
 #     - go test -race $(go list ./... | grep -v /vendor/)
 
 compile:
+  image: golang:1.18
   stage: build
   script:
     - go build -o ./cmd/socks5lb
