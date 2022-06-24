@@ -1,0 +1,9 @@
+version: "3"
+services:
+  socks5lb:
+    build:
+      context: .
+      args:
+        GITEA_TOKEN: $GITEA_TOKEN
+    image: ghcr.io/mingcheng/socks5lb:latest
+    restart: unless-stopped

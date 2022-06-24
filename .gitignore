@@ -1,0 +1,8 @@
+*~
+/build
+/target
+/vendor
+/*.json
+Thumbs.db
+.DS*
+/.idea
