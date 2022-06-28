@@ -12,6 +12,8 @@ stages:
 compile:
   image: golang:1.18
   stage: build
+  environment:
+    GOPROXY: https://goproxy.cn
   script:
     - go build -o ./cmd/socks5lb
   artifacts:
