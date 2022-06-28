@@ -12,10 +12,10 @@ stages:
 compile:
   image: golang:1.18
   stage: build
-  environment:
-    GOPROXY: https://goproxy.cn
   script:
     - go build -o ./cmd/socks5lb
+  before_script:
+    - export GOPROXY="https://goproxy.cn"
   artifacts:
     paths:
       - socks5lb
