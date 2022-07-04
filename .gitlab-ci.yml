@@ -20,6 +20,6 @@ compile:
     - ./socks5lb -h
   before_script:
     - export GOPROXY="https://goproxy.cn"
-  artifacts:
-    paths:
-      - socks5lb
+  # artifacts:
+  #   paths:
+  #     - socks5lb
