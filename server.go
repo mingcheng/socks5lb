@@ -1,11 +1,12 @@
 package socks5lb
 
 import (
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
 	"strconv"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // https://kasvith.me/posts/lets-create-a-simple-lb-go/
@@ -91,3 +92,24 @@ func (s *Server) Transport(dst, src io.ReadWriter) (err error) {
 	log.Tracef("transport stream is finished")
 	return
 }
+
+//func (s *Server) Transport(dst, src io.ReadWriter) (err error) {
+//	// @see https://github.com/LiamHaworth/go-tproxy/example/tproxy_example.go#L159
+//	var streamWait sync.WaitGroup
+//	streamWait.Add(2)
+//
+//	go func() {
+//		_, err = io.Copy(dst, src)
+//		streamWait.Done()
+//	}()
+//
+//	go func() {
+//		_, err = io.Copy(src, dst)
+//		streamWait.Done()
+//	}()
+//
+//	streamWait.Wait()
+//	log.Tracef("transport stream is finished")
+//
+//	return
+//}
