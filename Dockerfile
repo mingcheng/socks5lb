@@ -24,5 +24,4 @@ RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.li
 
 COPY --from=builder /usr/bin/socks5lb /bin/socks5lb
 
-EXPOSE 1080
 ENTRYPOINT ["dumb-init", "/bin/socks5lb"]
