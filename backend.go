@@ -10,8 +10,18 @@ import (
 	"github.com/txthinking/socks5"
 )
 
+type BackendCheckConfig struct {
+	CheckURL     string `yaml:"check_url"`
+	InitialAlive bool   `yaml:"initial_alive"`
+	Timeout      uint   `yaml:"timeout"`
+}
+
 type Backend struct {
-	Addr  string `yaml:"addr"`
+	Addr           string              `yaml:"addr"`
+	Socks5UserName string              `yaml:"username"`
+	Socks5Password string              `yaml:"password"`
+	CheckConfig    *BackendCheckConfig `yaml:"check_config"`
+
 	mux   sync.RWMutex
 	alive bool
 }
@@ -22,38 +32,35 @@ func (b *Backend) Alive() bool {
 }
 
 // Check function to check the node healthy by given url
-func (b *Backend) Check(url string) error {
+func (b *Backend) Check() error {
 	b.mux.Lock()
 	defer b.mux.Unlock()
 
-	client, err := b.proxyClient()
-	if err != nil {
-		return err
-	}
+	if url := b.CheckConfig.CheckURL; url != "" {
+		client, err := b.httpProxyClient()
+		if err != nil {
+			return err
+		}
 
-	resp, err := client.Get(url)
-	if err != nil || (resp != nil && resp.StatusCode != http.StatusOK) {
-		b.alive = false
-		return err
+		resp, err := client.Get(url)
+		if err != nil || (resp != nil && resp.StatusCode != http.StatusOK) {
+			b.alive = false
+			return err
+		}
 	}
 
 	b.alive = true
 	return nil
 }
 
-// proxyClient to create http client with socks5 proxy
-func (b *Backend) proxyClient() (*http.Client, error) {
-	// NOTICE timeout as seconds
-	timeout := 30
-	c, err := socks5.NewClient(b.Addr, "", "", timeout, timeout)
-	if err != nil {
-		return nil, err
-	}
+// httpProxyClient to create http client with socks5 proxy
+func (b *Backend) httpProxyClient() (*http.Client, error) {
+	var timeout = b.CheckConfig.Timeout
 
 	// setup a http client
 	httpTransport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return c.Dial(network, addr)
+			return b.Socks5Conn("tcp", addr, int(timeout))
 		},
 	}
 
@@ -61,4 +68,27 @@ func (b *Backend) proxyClient() (*http.Client, error) {
 		Transport: httpTransport,
 		Timeout:   time.Duration(timeout) * time.Second,
 	}, nil
+}
+
+func (b *Backend) socks5Client(timeout int) (*socks5.Client, error) {
+	return socks5.NewClient(b.Addr, b.Socks5UserName, b.Socks5Password, timeout, timeout)
+}
+
+func (b *Backend) Socks5Conn(network, addr string, timeout int) (cc net.Conn, err error) {
+	client, err := b.socks5Client(timeout)
+	if err != nil {
+		return
+	}
+
+	return client.Dial(network, addr)
+}
+
+func NewBackend(addr string, config BackendCheckConfig) (backend *Backend) {
+	backend = &Backend{
+		Addr:        addr,
+		alive:       config.InitialAlive,
+		CheckConfig: &config,
+	}
+
+	return
 }

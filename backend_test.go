@@ -5,11 +5,12 @@ import (
 )
 
 func TestBackend_Check(t *testing.T) {
-	b := Backend{
-		Addr: "10.0.20.25:1086",
-	}
+	b := NewBackend("192.168.100.254:1086", BackendCheckConfig{
+		CheckURL:     "https://www.google.com/robots.txt",
+		InitialAlive: true,
+	})
 
-	err := b.Check("https://www.google.com/robots.txt")
+	err := b.Check()
 	if err != nil {
 		t.Error(err)
 	}

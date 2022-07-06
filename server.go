@@ -8,104 +8,86 @@ import (
 	"time"
 )
 
+// https://kasvith.me/posts/lets-create-a-simple-lb-go/
+
+type Status struct {
+	OutBytes, InBytes uint
+	LastOnline        time.Time
+	LastFailed        time.Time
+	FailedTimes       uint
+}
+
 type Server struct {
-	Pool             *Pool
+	Pool   *Pool
+	Status map[*Backend]Status
+
 	healthCheckTimer *time.Ticker
-	ln               net.Listener
+	socks5Listener   net.Listener
+	tproxyListener   net.Listener
 }
 
 func (s *Server) AddBackend() error {
 	return nil
 }
 
-func (s *Server) Start(addr string) error {
-	var err error
-
+func (s *Server) Start(socksListenAddr, tproxyListenAddr string) (err error) {
 	intervalStr := GetEnv("CHECK_TIME_INTERVAL", "1")
 	interval, err := strconv.ParseInt(intervalStr, 10, 64)
 	if err != nil {
+		log.Debugf("parse health check with error %v, reset default value 1", err)
 		interval = 1
 	}
-
 	healthCheckTime := time.Duration(interval) * time.Minute
-	//log.Tracef("check time interval is %v", healthCheckTime)
+	log.Tracef("check time interval is %v", healthCheckTime)
 
 	s.healthCheckTimer = time.NewTicker(healthCheckTime)
-
 	go func() {
 		log.Tracef("start health check, every %v", healthCheckTime)
 		for ; true; <-s.healthCheckTimer.C {
-			s.Pool.HealthCheck("https://www.google.com/robots.txt")
+			s.Pool.Check()
 		}
 	}()
 
-	log.Debugf("start listen on %s", addr)
-	s.ln, err = net.Listen("tcp", addr)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	for {
-		conn, err := s.ln.Accept()
-		if err != nil {
-			log.Error(err)
-			continue
-		}
-
-		err = conn.SetDeadline(time.Now().Add(time.Minute * 30))
-		if err != nil {
-			log.Error(err)
-			continue
-		}
-
-		log.Tracef("new tcp connection from %s", conn.RemoteAddr())
+	if tproxyListenAddr != "" {
+		log.Tracef("start linux transparent proxy on %s", tproxyListenAddr)
 		go func() {
-			err := s.handleConnection(conn, s.Pool.Next())
-			if err != nil {
-				log.Error(err)
+			if err = s.ListenTProxy(tproxyListenAddr); err != nil {
+				log.Fatal(err)
 			}
 		}()
 	}
+
+	log.Tracef("start sock5 proxy address on %s", socksListenAddr)
+	return s.ListenSocks5(socksListenAddr)
 }
 
-func (s *Server) Stop() error {
+func (s *Server) Stop() (e error) {
 	log.Debug("shutting down the server")
 	s.healthCheckTimer.Stop()
-	return s.ln.Close()
+	go s.socks5Listener.Close()
+	go s.tproxyListener.Close()
+	return
 }
 
-func (s *Server) copy(dst io.Writer, src io.Reader) error {
-	count, err := io.Copy(dst, src)
-	log.Tracef("%d bytes copied", count)
-	return err
-}
-
-func (s *Server) handleConnection(us net.Conn, server *Backend) error {
-	if server == nil {
-		return nil
-	}
-
-	ds, err := net.DialTimeout("tcp", server.Addr, 3*time.Second)
-	if err != nil {
-		return err
-	}
-
-	log.Tracef("%v >-< %v", us.RemoteAddr(), ds.LocalAddr())
-	errc := make(chan error, 1)
+func (s *Server) Transport(dst, src io.ReadWriter) (err error) {
+	// @see https://github.com/ginuerzh/gost/blob/0247b941ac31344f0d7b3c547941a051188ba202/server.go#L105
+	errs := make(chan error, 1)
 
 	go func() {
-		errc <- s.copy(ds, us)
+		_, err = io.Copy(dst, src)
+		errs <- err
 	}()
 
 	go func() {
-		errc <- s.copy(us, ds)
+		_, err = io.Copy(src, dst)
+		errs <- err
 	}()
 
-	err = <-errc
+	err = <-errs
 	if err != nil && err == io.EOF {
 		err = nil
 	}
 
-	return err
+	log.Tracef("transport stream is finished")
+	return
 }

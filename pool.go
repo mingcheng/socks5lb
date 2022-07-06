@@ -35,9 +35,9 @@ func (b *Pool) Next() *Backend {
 	return nil
 }
 
-func (b *Pool) HealthCheck(url string) {
+func (b *Pool) Check() {
 	for _, b := range b.backends {
-		err := b.Check(url)
+		err := b.Check()
 		if err != nil {
 			log.Errorf("check backend %s is failed, error %v", b.Addr, err)
 		} else {

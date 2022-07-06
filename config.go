@@ -1,7 +1,7 @@
 package socks5lb
 
 type Configure struct {
-	Listen   string   `yaml:"listen"`
-	Status   string   `yaml:"status"`
-	Backends []string `yaml:"backends"`
+	Socks5Listen string    `yaml:"socks5_listen"`
+	TproxyListen string    `yaml:"tproxy_listen"`
+	Backends     []Backend `yaml:"backends"`
 }

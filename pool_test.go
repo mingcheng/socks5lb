@@ -16,7 +16,7 @@ func TestPool_HealthCheck(t *testing.T) {
 				Addr: "10.0.20.254:1086",
 			},
 			{
-				Addr: "10.0.11.254:1086",
+				Addr: "192.168.100.254:1086",
 			},
 			{
 				Addr: "10.0.11.254:1086",
@@ -30,7 +30,7 @@ func TestPool_HealthCheck(t *testing.T) {
 		},
 	}
 
-	pool.HealthCheck("https://www.google.com/robots.txt")
+	pool.Check("https://www.google.com/robots.txt")
 
 	for i := 0; i < 100; i++ {
 		b := pool.Next()

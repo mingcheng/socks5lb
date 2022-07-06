@@ -2,53 +2,56 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"github.com/judwhite/go-svc"
 	"github.com/mingcheng/socks5lb"
 	log "github.com/sirupsen/logrus"
-	"net"
+	"gopkg.in/yaml.v3"
+	"io/ioutil"
+	"syscall"
+
 	"os"
-	"strings"
 )
 
-var (
-	pool    *socks5lb.Pool
-	servers string
-	listen  string
-)
+const AppName = "socks5lb"
+
+var config *socks5lb.Configure
+var err error
+var configFilePath string
 
 func init() {
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.TraceLevel)
 
-	flag.StringVar(&servers, "s", "", "socks5 proxy list")
-	flag.StringVar(&listen, "l", "127.0.0.1:1080", "local listen tcp port")
+	flag.StringVar(&configFilePath, "c", "/etc/"+AppName+".yml", "configure file path")
+}
+
+func NewConfig(path string) (config *socks5lb.Configure, err error) {
+	var (
+		data []byte
+	)
+
+	if data, err = ioutil.ReadFile(path); err != nil {
+		return
+	}
+
+	if err = yaml.Unmarshal(data, &config); err != nil {
+		return
+	}
+
+	return
 }
 
 func main() {
 	flag.Parse()
 
-	log.Tracef("new initial backend pools")
-	pool = socks5lb.NewPool()
-
-	for _, s := range strings.Split(servers, ",") {
-		addr, err := net.ResolveTCPAddr("tcp", s)
-		if err != nil {
-			log.Error(err)
-			continue
-		}
-
-		log.Debugf("add backend server, address is %s:%d", addr.IP, addr.Port)
-		pool.Add(&socks5lb.Backend{
-			Addr: fmt.Sprintf("%s:%d", addr.IP, addr.Port),
-		})
+	if config, err = NewConfig(configFilePath); err != nil {
+		log.Fatal(err)
 	}
 
-	server := socks5lb.Server{
-		Pool: pool,
-	}
-	defer server.Stop()
-
-	if err := server.Start(listen); err != nil {
-		log.Panic(err)
+	// Call svc.Run to start your Program/service.
+	if err := svc.Run(&program{
+		Config: config,
+	}, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill); err != nil {
+		log.Fatal(err)
 	}
 }

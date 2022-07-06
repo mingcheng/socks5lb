@@ -1,0 +1,8 @@
+socks5_listen: ":1080"
+tproxy_listen:
+backends:
+  - addr: 192.168.100.254:1086
+    check_config:
+      check_url: https://www.google.com/robots.txt
+      initial_alive: true
+      timeout: 3
