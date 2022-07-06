@@ -3,7 +3,7 @@
 # Author: Ming Cheng<mingcheng@outlook.com>
 #
 # Created Date: Monday, March 9th 2020, 5:11:52 pm
-# Last Modified: Wednesday, July 6th 2022, 5:25:30 pm
+# Last Modified: Wednesday, July 6th 2022, 5:27:14 pm
 #
 # http://www.opensource.org/licenses/MIT
 ###
@@ -17,6 +17,9 @@ steps:
     image: golang:1.18
     environment:
       GOPROXY: https://goproxy.cn
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
     commands:
       - go build ./cmd/socks5lb
       - ./socks5lb -h
