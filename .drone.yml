@@ -1,0 +1,72 @@
+###
+# File: .drone.yml
+# Author: Ming Cheng<mingcheng@outlook.com>
+#
+# Created Date: Monday, March 9th 2020, 5:11:52 pm
+# Last Modified: Wednesday, July 6th 2022, 5:25:30 pm
+#
+# http://www.opensource.org/licenses/MIT
+###
+
+kind: pipeline
+type: docker
+name: build_and_run_on_docker
+
+steps:
+  - name: build
+    image: golang:1.18
+    environment:
+      GOPROXY: https://goproxy.cn
+    commands:
+      - go build ./cmd/socks5lb
+      - ./socks5lb -h
+
+  - name: publish-to-ghcr
+    image: plugins/docker
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
+    environment:
+      GOPROXY: "https://goproxy.cn,direct"
+    when:
+      branch:
+        - master
+      event:
+        - push
+    settings:
+      registry: ghcr.io
+      repo: ghcr.io/mingcheng/sock5lb
+      username: mingcheng
+      password:
+        from_secret: docker_password
+      dockerfile: Dockerfile
+      tags:
+        - latest
+
+  - name: publish-to-huaweicloud
+    image: plugins/docker
+    volumes:
+      - name: docker-sock
+        path: /var/run/docker.sock
+    environment:
+      GOPROXY: "https://goproxy.cn,direct"
+    when:
+      branch:
+        - master
+      event:
+        - push
+    settings:
+      registry: swr.cn-east-2.myhuaweicloud.com
+      repo: swr.cn-east-2.myhuaweicloud.com/mingcheng/sock5lb
+      username:
+        from_secret: huawei_docker_username
+      password:
+        from_secret: huawei_docker_password
+      dockerfile: Dockerfile
+      tags:
+        - latest
+
+volumes:
+  - name: docker-sock
+    host:
+      path: /var/run/docker.sock
