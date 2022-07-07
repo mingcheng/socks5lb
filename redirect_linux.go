@@ -17,10 +17,14 @@ import (
 	"fmt"
 	"github.com/LiamHaworth/go-tproxy"
 	log "github.com/sirupsen/logrus"
+	"github.com/txthinking/socks5"
 	"net"
+	"sync"
 	"syscall"
+	"time"
 )
 
+// getOriginalDstAddr to get the original address from the socket
 func getOriginalDstAddr(conn *net.TCPConn) (addr net.Addr, c *net.TCPConn, err error) {
 	defer conn.Close()
 
@@ -50,10 +54,40 @@ func getOriginalDstAddr(conn *net.TCPConn) (addr net.Addr, c *net.TCPConn, err e
 
 	c, ok := cc.(*net.TCPConn)
 	if !ok {
-		err = errors.New("not a TCP connection")
+		err = errors.New("sorry, this is not a TCP connection")
 	}
 
 	return
+}
+
+var (
+	socks5Clients *socks5.Client
+	clientLock    sync.Mutex
+)
+
+func (s *Server) socks5Client() (client *socks5.Client, err error) {
+	clientLock.Lock()
+
+	defer func() {
+		clientLock.Unlock()
+		if err != nil || client == nil {
+			log.Error(err)
+			socks5Clients = nil
+			return
+		}
+
+		log.Infof("markup current proxy connection: %v", client.Server)
+		socks5Clients = client
+	}()
+
+	backend := s.Pool.Next()
+	if backend == nil {
+		log.Error("sorry, we don't have healthy backend, so close the connection")
+		socks5Clients = nil
+		return
+	}
+
+	return backend.socks5Client(0)
 }
 
 func (s *Server) ListenTProxy(addr string) (err error) {
@@ -68,6 +102,22 @@ func (s *Server) ListenTProxy(addr string) (err error) {
 		log.Error(err)
 		return
 	}
+	defer s.tproxyListener.Close()
+
+	// connect to available socks5 proxy server
+	selectTimeInterval := SecFromEnv("SELECT_TIME_INTERVAL", 120)
+	log.Infof("auto select the socks5 proxy server every %v", selectTimeInterval)
+
+	timer := time.NewTicker(selectTimeInterval)
+	defer timer.Stop()
+	go func() {
+		for ; true; <-timer.C {
+			_, err := s.socks5Client()
+			if err != nil {
+				log.Error(err)
+			}
+		}
+	}()
 
 	for {
 		tproxyConn, err := s.tproxyListener.Accept()
@@ -79,11 +129,11 @@ func (s *Server) ListenTProxy(addr string) (err error) {
 		go func() {
 			defer tproxyConn.Close()
 
-			backend := s.Pool.Next()
-			if backend == nil {
-				log.Error("sorry, we don't have healthy backend, so close the connection")
+			if socks5Clients == nil {
+				log.Error("not found any suitable socks5 clients")
 				return
 			}
+			log.Tracef("using connected socks5 proxy client: %v", socks5Clients.Server)
 
 			connect, ok := tproxyConn.(*tproxy.Conn)
 			if !ok {
@@ -100,7 +150,7 @@ func (s *Server) ListenTProxy(addr string) (err error) {
 			defer orgDstConn.Close()
 
 			log.Tracef("[red-tcp] %s -> %s", srcAddr, dstAddr)
-			socks5Conn, err := backend.Socks5Conn("tcp", dstAddr.String(), 0)
+			socks5Conn, err := socks5Clients.Dial("tcp", dstAddr.String())
 			if err != nil {
 				log.Error(err)
 			}

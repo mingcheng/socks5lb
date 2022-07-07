@@ -13,7 +13,6 @@ package socks5lb
 import (
 	"io"
 	"net"
-	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -42,18 +41,11 @@ func (s *Server) AddBackend() error {
 }
 
 func (s *Server) Start(socksListenAddr, tproxyListenAddr string) (err error) {
-	intervalStr := GetEnv("CHECK_TIME_INTERVAL", "1")
-	interval, err := strconv.ParseInt(intervalStr, 10, 64)
-	if err != nil {
-		log.Debugf("parse health check with error %v, reset default value 1", err)
-		interval = 1
-	}
-	healthCheckTime := time.Duration(interval) * time.Second
-	log.Tracef("check time interval is %v", healthCheckTime)
+	duration := SecFromEnv("CHECK_TIME_INTERVAL", 60)
 
-	s.healthCheckTimer = time.NewTicker(healthCheckTime)
+	s.healthCheckTimer = time.NewTicker(duration)
 	go func() {
-		log.Tracef("start health check, every %v", healthCheckTime)
+		log.Infof("auto check backend healthy, every %v", duration)
 		for ; true; <-s.healthCheckTimer.C {
 			s.Pool.Check()
 		}

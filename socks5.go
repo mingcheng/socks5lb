@@ -15,12 +15,14 @@ import (
 	"net"
 )
 
+// ListenSocks5 to listen on a specific address
 func (s *Server) ListenSocks5(addr string) (err error) {
 	s.socks5Listener, err = net.Listen("tcp", addr)
 	if err != nil {
 		log.Error(err)
 		return
 	}
+	defer s.socks5Listener.Close()
 
 	for {
 		socks5Conn, err := s.socks5Listener.Accept()
