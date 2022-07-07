@@ -3,7 +3,7 @@ services:
   socks5lb:
     build:
       context: .
-      args:
-        GITEA_TOKEN: $GITEA_TOKEN
-    image: ghcr.io/mingcheng/socks5lb:latest
+    image: ghcr.io/mingcheng/socks5lb
+    environment:
+      CHECK_TIME_INTERVAL: 60
     restart: unless-stopped

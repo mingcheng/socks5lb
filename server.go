@@ -38,7 +38,7 @@ func (s *Server) Start(socksListenAddr, tproxyListenAddr string) (err error) {
 		log.Debugf("parse health check with error %v, reset default value 1", err)
 		interval = 1
 	}
-	healthCheckTime := time.Duration(interval) * time.Minute
+	healthCheckTime := time.Duration(interval) * time.Second
 	log.Tracef("check time interval is %v", healthCheckTime)
 
 	s.healthCheckTimer = time.NewTicker(healthCheckTime)
@@ -92,24 +92,3 @@ func (s *Server) Transport(dst, src io.ReadWriter) (err error) {
 	log.Tracef("transport stream is finished")
 	return
 }
-
-//func (s *Server) Transport(dst, src io.ReadWriter) (err error) {
-//	// @see https://github.com/LiamHaworth/go-tproxy/example/tproxy_example.go#L159
-//	var streamWait sync.WaitGroup
-//	streamWait.Add(2)
-//
-//	go func() {
-//		_, err = io.Copy(dst, src)
-//		streamWait.Done()
-//	}()
-//
-//	go func() {
-//		_, err = io.Copy(src, dst)
-//		streamWait.Done()
-//	}()
-//
-//	streamWait.Wait()
-//	log.Tracef("transport stream is finished")
-//
-//	return
-//}

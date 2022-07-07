@@ -38,33 +38,10 @@ steps:
         - push
     settings:
       registry: ghcr.io
-      repo: ghcr.io/mingcheng/sock5lb
+      repo: ghcr.io/mingcheng/socks5lb
       username: mingcheng
       password:
         from_secret: docker_password
-      dockerfile: Dockerfile
-      tags:
-        - latest
-
-  - name: publish-to-huaweicloud
-    image: plugins/docker
-    volumes:
-      - name: docker-sock
-        path: /var/run/docker.sock
-    environment:
-      GOPROXY: "https://goproxy.cn,direct"
-    when:
-      branch:
-        - master
-      event:
-        - push
-    settings:
-      registry: swr.cn-east-2.myhuaweicloud.com
-      repo: swr.cn-east-2.myhuaweicloud.com/mingcheng/sock5lb
-      username:
-        from_secret: huawei_docker_username
-      password:
-        from_secret: huawei_docker_password
       dockerfile: Dockerfile
       tags:
         - latest
