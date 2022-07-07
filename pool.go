@@ -1,3 +1,13 @@
+/**
+ * File: pool.go
+ * Author: Ming Cheng<mingcheng@outlook.com>
+ *
+ * Created Date: Tuesday, June 21st 2022, 6:03:26 pm
+ * Last Modified: Thursday, July 7th 2022, 6:47:39 pm
+ *
+ * http://www.opensource.org/licenses/MIT
+ */
+
 package socks5lb
 
 import (

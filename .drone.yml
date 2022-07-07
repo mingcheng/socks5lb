@@ -46,6 +46,7 @@ steps:
       dockerfile: Dockerfile
       tags:
         - latest
+        - 1.0.0
 
 volumes:
   - name: docker-sock

@@ -1,30 +1,50 @@
+/**
+ * File: main.go
+ * Author: Ming Cheng<mingcheng@outlook.com>
+ *
+ * Created Date: Wednesday, June 22nd 2022, 12:39:47 pm
+ * Last Modified: Thursday, July 7th 2022, 6:29:42 pm
+ *
+ * http://www.opensource.org/licenses/MIT
+ */
+
 package main
 
 import (
 	"flag"
+	"io/ioutil"
+	"syscall"
+
 	"github.com/judwhite/go-svc"
 	"github.com/mingcheng/socks5lb"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
-	"syscall"
 
 	"os"
 )
 
 const AppName = "socks5lb"
 
-var config *socks5lb.Configure
-var err error
-var configFilePath string
+var (
+	config  *socks5lb.Configure
+	err     error
+	cfgPath string
+)
 
 func init() {
 	log.SetOutput(os.Stdout)
-	log.SetLevel(log.TraceLevel)
 
-	flag.StringVar(&configFilePath, "c", "/etc/"+AppName+".yml", "configure file path")
+	isDebug := socks5lb.GetEnv("DEBUG", "")
+	if isDebug != "" {
+		log.SetLevel(log.TraceLevel)
+	} else {
+		log.SetLevel(log.InfoLevel)
+	}
+
+	flag.StringVar(&cfgPath, "c", "/etc/"+AppName+".yml", "configure file cfgPath")
 }
 
+// NewConfig returns a new Config instance
 func NewConfig(path string) (config *socks5lb.Configure, err error) {
 	var (
 		data []byte
@@ -44,7 +64,8 @@ func NewConfig(path string) (config *socks5lb.Configure, err error) {
 func main() {
 	flag.Parse()
 
-	if config, err = NewConfig(configFilePath); err != nil {
+	// read the config if err != nil
+	if config, err = NewConfig(cfgPath); err != nil {
 		log.Fatal(err)
 	}
 
