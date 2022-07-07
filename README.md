@@ -47,6 +47,12 @@ backends:
       timeout: 3
 ```
 
+#### 环境变量
+
+- `SELECT_TIME_INTERVAL` 自动切换代理的时间，单位为秒（默认300秒，五分钟）
+- `CHECK_TIME_INTERVAL` 健康检查的轮询时间，单位为秒（默认一分钟）
+- `DEBUG` 是否打开 debug 模式
+
 ### 部署
 
 首先，以下是 docker-compose 相关的配置，建议使用 `network_mode: 'host'` 方式，防止 DOCK 的 iptables 造成网络联通错误

@@ -1,8 +1,23 @@
+###
+# File: socks5lb.yml
+# Author: Ming Cheng<mingcheng@outlook.com>
+#
+# Created Date: Wednesday, July 6th 2022, 2:26:10 pm
+# Last Modified: Thursday, July 7th 2022, 6:32:10 pm
+#
+# http://www.opensource.org/licenses/MIT
+###
+
 socks5_listen: ":1080"
 tproxy_listen:
 backends:
   - addr: 192.168.100.254:1086
     check_config:
       check_url: https://www.google.com/robots.txt
+      initial_alive: true
+      timeout: 3
+  - addr: 192.168.1.254:1080
+    check_config:
+      check_url: https://twitter.com/robots.txt
       initial_alive: true
       timeout: 3
