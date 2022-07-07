@@ -39,9 +39,10 @@ steps:
     settings:
       registry: ghcr.io
       repo: ghcr.io/mingcheng/socks5lb
-      username: mingcheng
+      username:
+        from_secret: ghcr_docker_username
       password:
-        from_secret: docker_password
+        from_secret: ghcr_docker_password
       dockerfile: Dockerfile
       tags:
         - latest
