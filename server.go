@@ -1,3 +1,13 @@
+/**
+ * File: server.go
+ * Author: Ming Cheng<mingcheng@outlook.com>
+ *
+ * Created Date: Wednesday, July 6th 2022, 5:39:05 pm
+ * Last Modified: Thursday, July 7th 2022, 6:31:24 pm
+ *
+ * http://www.opensource.org/licenses/MIT
+ */
+
 package socks5lb
 
 import (

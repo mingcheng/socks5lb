@@ -1,3 +1,13 @@
+/**
+ * File: program.go
+ * Author: Ming Cheng<mingcheng@outlook.com>
+ *
+ * Created Date: Wednesday, July 6th 2022, 2:14:35 pm
+ * Last Modified: Thursday, July 7th 2022, 6:29:55 pm
+ *
+ * http://www.opensource.org/licenses/MIT
+ */
+
 package main
 
 import (
