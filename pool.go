@@ -28,16 +28,22 @@ func (b *Pool) NextIndex() int {
 	return int(atomic.AddUint64(&b.current, uint64(1)) % uint64(len(b.backends)))
 }
 
+// Next returns the next index in the pool if there is one available
+// Only supports round-robin operations by default
 func (b *Pool) Next() *Backend {
 	// loop entire backends to find out an Alive backend
 	next := b.NextIndex()
-	l := len(b.backends) + next // start from next and move a full cycle
+	// start from next and move a full cycle
+	l := len(b.backends) + next
 	for i := next; i < l; i++ {
-		idx := i % len(b.backends)   // take an index by modding
-		if b.backends[idx].Alive() { // if we have an alive backend, use it and store if its not the original one
+		// take an index by modding
+		idx := i % len(b.backends)
+		// if we have an alive backend, use it and store if its not the original one
+		if b.backends[idx].Alive() {
 			if i != next {
 				atomic.StoreUint64(&b.current, uint64(idx))
 			}
+
 			return b.backends[idx]
 		}
 	}
@@ -45,6 +51,7 @@ func (b *Pool) Next() *Backend {
 	return nil
 }
 
+// Check if we have an alive backend
 func (b *Pool) Check() {
 	for _, b := range b.backends {
 		err := b.Check()
@@ -56,6 +63,7 @@ func (b *Pool) Check() {
 	}
 }
 
+// NewPool instance for a new Pools instance
 func NewPool() *Pool {
 	return &Pool{
 		backends: []*Backend{},

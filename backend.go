@@ -80,10 +80,12 @@ func (b *Backend) httpProxyClient() (*http.Client, error) {
 	}, nil
 }
 
+// socks5Client to create http client with socks5 proxy
 func (b *Backend) socks5Client(timeout int) (*socks5.Client, error) {
 	return socks5.NewClient(b.Addr, b.Socks5UserName, b.Socks5Password, timeout, timeout)
 }
 
+// Socks5Conn to create a connection by specific params
 func (b *Backend) Socks5Conn(network, addr string, timeout int) (cc net.Conn, err error) {
 	client, err := b.socks5Client(timeout)
 	if err != nil {
@@ -93,6 +95,7 @@ func (b *Backend) Socks5Conn(network, addr string, timeout int) (cc net.Conn, er
 	return client.Dial(network, addr)
 }
 
+// NewBackend creates a new Backend instance
 func NewBackend(addr string, config BackendCheckConfig) (backend *Backend) {
 	backend = &Backend{
 		Addr:        addr,

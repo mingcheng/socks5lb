@@ -48,6 +48,7 @@ func (s *Server) ListenSocks5(addr string) (err error) {
 			}
 			defer backendConn.Close()
 
+			// transport the socket connection directly to the backend
 			s.Transport(socks5Conn, backendConn)
 		}()
 	}

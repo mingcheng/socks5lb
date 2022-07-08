@@ -25,6 +25,8 @@ import (
 )
 
 // getOriginalDstAddr to get the original address from the socket
+// this function is referenced from
+// https://github.com/ginuerzh/gost/blob/0247b941ac31344f0d7b3c547941a051188ba202/redirect.go#L72
 func getOriginalDstAddr(conn *net.TCPConn) (addr net.Addr, c *net.TCPConn, err error) {
 	defer conn.Close()
 
@@ -65,6 +67,7 @@ var (
 	clientLock    sync.Mutex
 )
 
+// socks5Client to connect to a proxy server
 func (s *Server) socks5Client() (client *socks5.Client, err error) {
 	clientLock.Lock()
 
@@ -80,16 +83,16 @@ func (s *Server) socks5Client() (client *socks5.Client, err error) {
 		socks5Clients = client
 	}()
 
-	backend := s.Pool.Next()
-	if backend == nil {
-		log.Error("sorry, we don't have healthy backend, so close the connection")
-		socks5Clients = nil
-		return
+	// found a available backend
+	if backend := s.Pool.Next(); backend != nil {
+		return backend.socks5Client(0)
 	}
 
-	return backend.socks5Client(0)
+	err = errors.New("sorry, we don't have healthy backend, so close the connection")
+	return
 }
 
+// ListenTProxy is listening the local tcp port on the given address
 func (s *Server) ListenTProxy(addr string) (err error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {

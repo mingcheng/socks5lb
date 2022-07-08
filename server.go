@@ -72,6 +72,7 @@ func (s *Server) Stop() (e error) {
 	return
 }
 
+// Transport is used to connect to the server and client each	other
 func (s *Server) Transport(dst, src io.ReadWriter) (err error) {
 	// @see https://github.com/ginuerzh/gost/blob/0247b941ac31344f0d7b3c547941a051188ba202/server.go#L105
 	errs := make(chan error, 1)
