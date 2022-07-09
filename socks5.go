@@ -41,7 +41,7 @@ func (s *Server) ListenSocks5(addr string) (err error) {
 			}
 
 			//log.Tracef("[socks5-tcp] %s -> %s", socks5Conn.RemoteAddr(), socks5Conn.LocalAddr())
-			backendConn, err := net.Dial("tcp", backend.Addr)
+			backendConn, err := net.Dial("tcp", string(backend.Addr))
 			if err != nil {
 				log.Error(err)
 				return

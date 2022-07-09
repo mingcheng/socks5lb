@@ -27,10 +27,10 @@ type BackendCheckConfig struct {
 }
 
 type Backend struct {
-	Addr           string              `yaml:"addr"`
-	Socks5UserName string              `yaml:"username"`
-	Socks5Password string              `yaml:"password"`
-	CheckConfig    *BackendCheckConfig `yaml:"check_config"`
+	Addr        string              `yaml:"addr"`
+	UserName    string              `yaml:"username"`
+	Password    string              `yaml:"password"`
+	CheckConfig *BackendCheckConfig `yaml:"check_config"`
 
 	mux   sync.RWMutex
 	alive bool
@@ -82,7 +82,7 @@ func (b *Backend) httpProxyClient() (*http.Client, error) {
 
 // socks5Client to create http client with socks5 proxy
 func (b *Backend) socks5Client(timeout int) (*socks5.Client, error) {
-	return socks5.NewClient(b.Addr, b.Socks5UserName, b.Socks5Password, timeout, timeout)
+	return socks5.NewClient(string(b.Addr), b.UserName, b.Password, timeout, timeout)
 }
 
 // Socks5Conn to create a connection by specific params
