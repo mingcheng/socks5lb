@@ -31,16 +31,18 @@ type Server struct {
 	Pool   *Pool
 	Status map[*Backend]Status
 
+	Config           *ServerConfig
 	healthCheckTimer *time.Ticker
-	socks5Listener   net.Listener
-	tproxyListener   net.Listener
+
+	socks5Listener net.Listener
+	tproxyListener net.Listener
 }
 
 func (s *Server) AddBackend() error {
 	return nil
 }
 
-func (s *Server) Start(socksListenAddr, tproxyListenAddr string) (err error) {
+func (s *Server) Start() (err error) {
 	duration := SecFromEnv("CHECK_TIME_INTERVAL", 60)
 
 	s.healthCheckTimer = time.NewTicker(duration)
@@ -51,22 +53,23 @@ func (s *Server) Start(socksListenAddr, tproxyListenAddr string) (err error) {
 		}
 	}()
 
-	if tproxyListenAddr != "" {
-		log.Tracef("start linux transparent proxy on %s", tproxyListenAddr)
+	if s.Config.TProxy.Addr != "" {
+		log.Tracef("start linux transparent proxy on %s", s.Config.TProxy.Addr)
 		go func() {
-			if err = s.ListenTProxy(tproxyListenAddr); err != nil {
+			if err = s.ListenTProxy(s.Config.TProxy.Addr); err != nil {
 				log.Fatal(err)
 			}
 		}()
 	}
 
-	log.Tracef("start sock5 proxy address on %s", socksListenAddr)
-	return s.ListenSocks5(socksListenAddr)
+	log.Tracef("start sock5 proxy address on %s", s.Config.Sock5.Addr)
+	return s.ListenSocks5(s.Config.Sock5.Addr)
 }
 
 func (s *Server) Stop() (e error) {
 	log.Debug("shutting down the server")
 	s.healthCheckTimer.Stop()
+
 	go s.socks5Listener.Close()
 	go s.tproxyListener.Close()
 	return

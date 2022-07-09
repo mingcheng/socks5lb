@@ -8,8 +8,13 @@
 # http://www.opensource.org/licenses/MIT
 ###
 
-socks5_listen: ":1080"
-tproxy_listen:
+server:
+  http:
+    addr: ":8080"
+  socks5:
+    addr: ":1980"
+  tproxy:
+    addr: ""
 backends:
   - addr: 192.168.100.254:1086
     check_config:

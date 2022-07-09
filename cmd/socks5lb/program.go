@@ -37,7 +37,8 @@ func (p *program) Init(env svc.Environment) (err error) {
 	}
 
 	p.Server = socks5lb.Server{
-		Pool: pool,
+		Pool:   pool,
+		Config: p.Config.ServerConfig,
 	}
 
 	return
@@ -46,7 +47,10 @@ func (p *program) Init(env svc.Environment) (err error) {
 // Start when the program is start
 func (p *program) Start() (err error) {
 	go func() {
-		err = p.Server.Start(p.Config.Socks5Listen, p.Config.TproxyListen)
+		err = p.Server.Start()
+		if err != nil {
+			log.Panic(err)
+		}
 	}()
 
 	return

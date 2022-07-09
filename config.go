@@ -10,8 +10,21 @@
 
 package socks5lb
 
+type ServerConfig struct {
+	HTTP struct {
+		Addr string `yaml:"addr"`
+	} `yaml:"http"`
+
+	TProxy struct {
+		Addr string `yaml:"addr"`
+	} `yaml:"tproxy"`
+
+	Sock5 struct {
+		Addr string `yaml:"addr"`
+	} `yaml:"sock5"`
+}
+
 type Configure struct {
-	Socks5Listen string    `yaml:"socks5_listen"`
-	TproxyListen string    `yaml:"tproxy_listen"`
-	Backends     []Backend `yaml:"backends"`
+	ServerConfig *ServerConfig `yaml:"server"`
+	Backends     []Backend     `yaml:"backends"`
 }
