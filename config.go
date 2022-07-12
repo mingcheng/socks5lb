@@ -3,7 +3,7 @@
  * Author: Ming Cheng<mingcheng@outlook.com>
  *
  * Created Date: Tuesday, June 21st 2022, 6:03:38 pm
- * Last Modified: Thursday, July 7th 2022, 6:30:15 pm
+ * Last Modified: Tuesday, July 12th 2022, 1:45:52 pm
  *
  * http://www.opensource.org/licenses/MIT
  */
@@ -21,7 +21,7 @@ type ServerConfig struct {
 
 	Sock5 struct {
 		Addr string `yaml:"addr"`
-	} `yaml:"sock5"`
+	} `yaml:"socks5"`
 }
 
 type Configure struct {

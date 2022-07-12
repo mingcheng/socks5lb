@@ -6,4 +6,10 @@ services:
     image: ghcr.io/mingcheng/socks5lb
     environment:
       CHECK_TIME_INTERVAL: 60
+      SELECT_TIME_INTERVAL: 120
+      DEBUG: "true"
+    ports:
+      - 1080:1080
+    volumes:
+      - ./socks5lb.yml:/etc/socks5lb.yml:ro
     restart: unless-stopped
