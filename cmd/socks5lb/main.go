@@ -3,7 +3,7 @@
  * Author: Ming Cheng<mingcheng@outlook.com>
  *
  * Created Date: Wednesday, June 22nd 2022, 12:39:47 pm
- * Last Modified: Thursday, July 7th 2022, 6:29:42 pm
+ * Last Modified: Friday, July 15th 2022, 5:53:09 pm
  *
  * http://www.opensource.org/licenses/MIT
  */
@@ -35,7 +35,7 @@ func init() {
 
 	if socks5lb.DebugMode {
 		log.SetLevel(log.TraceLevel)
-		log.Debug("set debug mode is ON, it's makes some more noise on terminal")
+		log.Debug("debug mode is On, its makess more noise on terminal")
 	}
 
 	flag.StringVar(&cfgPath, "c", "/etc/"+socks5lb.AppName+".yml", "configure file cfgPath")
