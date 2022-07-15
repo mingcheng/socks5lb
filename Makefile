@@ -23,7 +23,7 @@ MAKEFLAGS += --silent
 
 all: build
 
-build: cmd/$(PROJECT)
+build: cmd/socks5lb
 	@$(GO) build $(GO_FLAGS) -o ${BINARY} $(SRC)
 
 list:
