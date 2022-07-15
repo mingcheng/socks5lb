@@ -21,7 +21,7 @@ steps:
       - name: docker-sock
         path: /var/run/docker.sock
     commands:
-      - go build ./cmd/socks5lb
+      - make build
       - ./socks5lb -h
 
   - name: publish-to-ghcr

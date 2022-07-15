@@ -15,7 +15,7 @@ compile:
   image: golang:1.18
   stage: build
   script:
-    - go build ./cmd/socks5lb
+    - make build
     - ./socks5lb -h
   before_script:
     - export GOPROXY="https://goproxy.cn"
