@@ -51,9 +51,10 @@ func TestPool_NextCheck(t *testing.T) {
 	assert.NotNil(t, pool)
 
 	for i := 0; i < 100; i++ {
-		pool.Add(NewBackend(fmt.Sprintf("%d", i), BackendCheckConfig{
+		err := pool.Add(NewBackend(fmt.Sprintf("%d", i), BackendCheckConfig{
 			InitialAlive: true,
 		}))
+		assert.NoError(t, err)
 	}
 
 	for i := 0; i < 100; i++ {

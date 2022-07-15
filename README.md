@@ -150,6 +150,17 @@ curl -X "DELETE" "http://localhost:8080/api/delete?addr=192.168.1.1:1086"
 
 ## 常见问题
 
+### 如果我不想针对某个节点健康检查呢（强制使用）？
+
+那么可以配置节点 `check_url` 参数为空，然后默认 `initial_alive` 为 `true` 即可，例如：
+
+```yaml
+backends:
+  - addr: 127.0.0.1:10860
+    check_config:
+      initial_alive: true
+```
+
 ### 在其他非 Linux 系统下可以使用 tproxy_listen 这个配置吗？
 
 不好意思，透明代理只针对 Linux 平台，所以如果是非 Linux 平台，请留空对应的配置。
