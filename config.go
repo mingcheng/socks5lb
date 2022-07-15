@@ -25,6 +25,6 @@ type ServerConfig struct {
 }
 
 type Configure struct {
-	ServerConfig *ServerConfig `yaml:"server"`
-	Backends     []Backend     `yaml:"backends"`
+	ServerConfig ServerConfig `yaml:"server"`
+	Backends     []Backend    `yaml:"backends"`
 }

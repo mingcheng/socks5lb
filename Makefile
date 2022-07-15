@@ -1,16 +1,21 @@
-PROJECT=socks5lb
-VERSION=`date +%Y%m%d`
-COMMIT_HASH=`git rev-parse --short HEAD`
+#https://gqlxj1987.github.io/2018/08/14/good-makefile-golang/
+include .env
+
+PROJECT=$(shell basename "$(PWD)")
+VERSION=$(shell date +%Y%m%d)
+COMMIT_HASH=$(shell git rev-parse --short HEAD)
 
 SRC=./cmd/$(PROJECT)
 BINARY=$(PROJECT)
 
-GO_ENV=CGO_ENABLED=0
 GO_FLAGS=-ldflags="-X main.version=$(VERSION) -X 'main.commit=$(COMMIT_HASH)' -X 'main.date=`date`'"
-GO=go
+GO=$(shell which go)
 
 PACKAGES=`go list ./...`
 GOFILES=`find . -name "*.go" -type f`
+
+# Make is verbose in Linux. Make it silent.
+MAKEFLAGS += --silent
 
 all: build
 

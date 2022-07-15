@@ -25,10 +25,11 @@ func (s *Server) ListenSocks5(addr string) (err error) {
 	defer s.socks5Listener.Close()
 
 	for {
-		socks5Conn, err := s.socks5Listener.Accept()
+		var socks5Conn net.Conn
+		socks5Conn, err = s.socks5Listener.Accept()
 		if err != nil {
 			log.Error(err)
-			continue
+			return
 		}
 
 		go func() {

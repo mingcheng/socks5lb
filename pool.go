@@ -20,9 +20,12 @@ import (
 type Pool struct {
 	backends map[string]*Backend
 	current  uint64
+	lock     sync.Mutex
 }
 
 func (b *Pool) Add(backend *Backend) (err error) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 	if b.backends[backend.Addr] != nil {
 		return fmt.Errorf("%v is already exists, remove it first", backend.Addr)
 	}
@@ -32,6 +35,8 @@ func (b *Pool) Add(backend *Backend) (err error) {
 }
 
 func (b *Pool) Remove(addr string) (err error) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 	delete(b.backends, addr)
 	return
 }
