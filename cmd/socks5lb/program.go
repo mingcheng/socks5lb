@@ -31,7 +31,7 @@ func (p *program) Init(env svc.Environment) (err error) {
 
 	for _, v := range p.Config.Backends {
 		log.Tracef("add backend %s", v.Addr)
-		backend := socks5lb.NewBackend(v.Addr, *v.CheckConfig)
+		backend := socks5lb.NewBackend(v.Addr, v.CheckConfig)
 		_ = pool.Add(backend)
 	}
 

@@ -23,31 +23,22 @@ import (
 	"os"
 )
 
-const AppName = "socks5lb"
-
 var (
 	config  *socks5lb.Configure
 	err     error
 	cfgPath string
 )
 
-var (
-	version = "n/a"
-	commit  = "n/a"
-	date    = "n/a"
-)
-
 func init() {
 	log.SetOutput(os.Stdout)
+	log.SetLevel(log.ErrorLevel)
 
-	isDebug := socks5lb.GetEnv("DEBUG", "")
-	if isDebug != "" {
+	if socks5lb.DebugMode {
 		log.SetLevel(log.TraceLevel)
-	} else {
-		log.SetLevel(log.InfoLevel)
+		log.Debug("set debug mode is ON, it's makes some more noise on terminal")
 	}
 
-	flag.StringVar(&cfgPath, "c", "/etc/"+AppName+".yml", "configure file cfgPath")
+	flag.StringVar(&cfgPath, "c", "/etc/"+socks5lb.AppName+".yml", "configure file cfgPath")
 }
 
 // NewConfig returns a new Config instance
@@ -68,8 +59,7 @@ func NewConfig(path string) (config *socks5lb.Configure, err error) {
 }
 
 func main() {
-	log.Infof("%s v%s(%s), build on %s", AppName, version, commit, date)
-
+	log.Infof("%s v%s(%s), build on %s", socks5lb.AppName, socks5lb.Version, socks5lb.BuildCommit, socks5lb.BuildDate)
 	flag.Parse()
 
 	// read the config if err != nil

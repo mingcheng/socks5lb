@@ -33,10 +33,8 @@ func NewProxyPool(t *testing.T) (pool *Pool, err error) {
 }
 
 func TestPool_HealthCheck(t *testing.T) {
-	pool, err := NewProxyPool(t)
-	if err != nil {
-		t.Error(err)
-	}
+	pool, _ := NewProxyPool(t)
+	assert.NotNil(t, pool)
 
 	pool.Check()
 	for i := 0; i < 100; i++ {
@@ -49,18 +47,16 @@ func TestPool_HealthCheck(t *testing.T) {
 }
 
 func TestPool_NextCheck(t *testing.T) {
-	pool, err := NewProxyPool(t)
-	if err != nil {
-		t.Error(err)
-	}
+	pool, _ := NewProxyPool(t)
+	assert.NotNil(t, pool)
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		pool.Add(NewBackend(fmt.Sprintf("%d", i), BackendCheckConfig{
 			InitialAlive: true,
 		}))
 	}
 
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 100; i++ {
 		next := pool.Next()
 		assert.NotNil(t, next)
 	}

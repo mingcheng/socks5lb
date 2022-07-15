@@ -14,13 +14,13 @@ server:
   socks5:
     addr: ":1080"
   tproxy:
-    addr: ":8848"
+    addr: ""
 backends:
-  - addr: 192.168.100.254:1086
-    check_config:
-      check_url: https://www.google.com/robots.txt
-      initial_alive: true
-      timeout: 3
+  #  - addr: 192.168.100.254:1086
+  #    check_config:
+  #      check_url: https://www.google.com/robots.txt
+  #      initial_alive: true
+  #      timeout: 3
   - addr: 192.168.1.254:1086
     check_config:
       check_url: https://twitter.com/robots.txt

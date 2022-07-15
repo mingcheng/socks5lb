@@ -37,7 +37,19 @@ func (b *Pool) Add(backend *Backend) (err error) {
 func (b *Pool) Remove(addr string) (err error) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
+
+	if b.backends[addr] == nil {
+		return fmt.Errorf("server %s is not exists", addr)
+	}
 	delete(b.backends, addr)
+	return
+}
+
+// All returns all backends
+func (b *Pool) All() (backends []*Backend) {
+	for _, v := range b.backends {
+		backends = append(backends, v)
+	}
 	return
 }
 
@@ -109,12 +121,20 @@ var (
 )
 
 // NewPool instance for a new Pools instance
-func NewPool() *Pool {
+func NewPool(backends ...[]Backend) *Pool {
 	once.Do(func() {
 		instance = &Pool{
 			backends: make(map[string]*Backend),
 		}
 	})
+
+	for _, backend := range backends {
+		for _, b := range backend {
+			if err := instance.Add(&b); err != nil {
+				log.Error(err)
+			}
+		}
+	}
 
 	return instance
 }

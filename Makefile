@@ -8,7 +8,11 @@ COMMIT_HASH=$(shell git rev-parse --short HEAD)
 SRC=./cmd/$(PROJECT)
 BINARY=$(PROJECT)
 
-GO_FLAGS=-ldflags="-X main.version=$(VERSION) -X 'main.commit=$(COMMIT_HASH)' -X 'main.date=`date`'"
+GO_FLAGS=-ldflags="\
+	-X github.com/mingcheng/socks5lb.Version=$(VERSION) \
+	-X 'github.com/mingcheng/socks5lb.BuildCommit=$(COMMIT_HASH)' \
+	-X 'github.com/mingcheng/socks5lb.BuildDate=$(shell date)'"
+
 GO=$(shell which go)
 
 PACKAGES=`go list ./...`
