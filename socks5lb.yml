@@ -3,7 +3,7 @@
 # Author: Ming Cheng<mingcheng@outlook.com>
 #
 # Created Date: Wednesday, July 6th 2022, 2:26:10 pm
-# Last Modified: Thursday, July 7th 2022, 6:32:10 pm
+# Last Modified: Tuesday, July 12th 2022, 1:46:17 pm
 #
 # http://www.opensource.org/licenses/MIT
 ###
@@ -12,15 +12,15 @@ server:
   http:
     addr: ":8080"
   socks5:
-    addr: ":1980"
+    addr: ":1080"
   tproxy:
     addr: ""
 backends:
-  - addr: 192.168.100.254:1086
-    check_config:
-      check_url: https://www.google.com/robots.txt
-      initial_alive: true
-      timeout: 3
+  #  - addr: 192.168.100.254:1086
+  #    check_config:
+  #      check_url: https://www.google.com/robots.txt
+  #      initial_alive: true
+  #      timeout: 3
   - addr: 192.168.1.254:1086
     check_config:
       check_url: https://twitter.com/robots.txt
@@ -31,3 +31,13 @@ backends:
       check_url: https://twitter.com/robots.txt
       initial_alive: true
       timeout: 3
+  - addr: host.docker.internal:1081
+    check_config:
+      check_url: https://www.google.com/robots.txt
+      initial_alive: false
+      timeout: 6
+  - addr: host.docker.internal:1082
+    check_config:
+      check_url: https://www.google.com/robots.txt
+      initial_alive: false
+      timeout: 6

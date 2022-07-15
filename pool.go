@@ -3,7 +3,7 @@
  * Author: Ming Cheng<mingcheng@outlook.com>
  *
  * Created Date: Tuesday, June 21st 2022, 6:03:26 pm
- * Last Modified: Thursday, July 7th 2022, 6:47:39 pm
+ * Last Modified: Friday, July 15th 2022, 5:35:23 pm
  *
  * http://www.opensource.org/licenses/MIT
  */
@@ -12,17 +12,22 @@ package socks5lb
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"sync"
 	"sync/atomic"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Pool struct {
 	backends map[string]*Backend
 	current  uint64
+	lock     sync.Mutex
 }
 
+// Add add a backend to the pool
 func (b *Pool) Add(backend *Backend) (err error) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
 	if b.backends[backend.Addr] != nil {
 		return fmt.Errorf("%v is already exists, remove it first", backend.Addr)
 	}
@@ -31,8 +36,23 @@ func (b *Pool) Add(backend *Backend) (err error) {
 	return
 }
 
+// Remove remove a backend from the pool
 func (b *Pool) Remove(addr string) (err error) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if b.backends[addr] == nil {
+		return fmt.Errorf("server %s is not exists", addr)
+	}
 	delete(b.backends, addr)
+	return
+}
+
+// All returns all backends
+func (b *Pool) All() (backends []*Backend) {
+	for _, v := range b.backends {
+		backends = append(backends, v)
+	}
 	return
 }
 
@@ -47,6 +67,7 @@ func (b *Pool) AllHealthy() (backends []*Backend) {
 	return
 }
 
+// NextIndex returns the next index for loadbalancer interface
 func (b *Pool) NextIndex() int {
 	return int(atomic.AddUint64(&b.current, uint64(1)) % uint64(len(b.backends)))
 }
@@ -104,12 +125,20 @@ var (
 )
 
 // NewPool instance for a new Pools instance
-func NewPool() *Pool {
+func NewPool(backends ...[]Backend) *Pool {
 	once.Do(func() {
 		instance = &Pool{
 			backends: make(map[string]*Backend),
 		}
 	})
+
+	for _, backend := range backends {
+		for _, b := range backend {
+			if err := instance.Add(&b); err != nil {
+				log.Error(err)
+			}
+		}
+	}
 
 	return instance
 }

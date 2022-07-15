@@ -29,9 +29,8 @@ type Status struct {
 
 type Server struct {
 	Pool   *Pool
-	Status map[*Backend]Status
+	Config *ServerConfig
 
-	Config           *ServerConfig
 	healthCheckTimer *time.Ticker
 
 	socks5Listener net.Listener
@@ -57,7 +56,16 @@ func (s *Server) Start() (err error) {
 		log.Tracef("start linux transparent proxy on %s", s.Config.TProxy.Addr)
 		go func() {
 			if err = s.ListenTProxy(s.Config.TProxy.Addr); err != nil {
-				log.Fatal(err)
+				log.Error(err)
+			}
+		}()
+	}
+
+	if s.Config.HTTP.Addr != "" {
+		log.Tracef("start http admin control on %s", s.Config.HTTP.Addr)
+		go func() {
+			if err = s.ListenHTTPAdmin(s.Config.HTTP.Addr); err != nil {
+				log.Error(err)
 			}
 		}()
 	}
@@ -70,8 +78,14 @@ func (s *Server) Stop() (e error) {
 	log.Debug("shutting down the server")
 	s.healthCheckTimer.Stop()
 
-	go s.socks5Listener.Close()
-	go s.tproxyListener.Close()
+	if s.socks5Listener != nil {
+		go s.socks5Listener.Close()
+	}
+
+	if s.tproxyListener != nil {
+		go s.tproxyListener.Close()
+	}
+
 	return
 }
 
@@ -97,4 +111,11 @@ func (s *Server) Transport(dst, src io.ReadWriter) (err error) {
 
 	log.Tracef("transport stream is finished")
 	return
+}
+
+func NewServer(pool *Pool, config ServerConfig) (*Server, error) {
+	return &Server{
+		Pool:   pool,
+		Config: &config,
+	}, nil
 }
