@@ -3,7 +3,7 @@
  * Author: Ming Cheng<mingcheng@outlook.com>
  *
  * Created Date: Tuesday, June 21st 2022, 6:03:26 pm
- * Last Modified: Thursday, July 7th 2022, 6:47:39 pm
+ * Last Modified: Friday, July 15th 2022, 5:35:23 pm
  *
  * http://www.opensource.org/licenses/MIT
  */
@@ -12,9 +12,10 @@ package socks5lb
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"sync"
 	"sync/atomic"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Pool struct {
@@ -23,6 +24,7 @@ type Pool struct {
 	lock     sync.Mutex
 }
 
+// Add add a backend to the pool
 func (b *Pool) Add(backend *Backend) (err error) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -34,6 +36,7 @@ func (b *Pool) Add(backend *Backend) (err error) {
 	return
 }
 
+// Remove remove a backend from the pool
 func (b *Pool) Remove(addr string) (err error) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -64,6 +67,7 @@ func (b *Pool) AllHealthy() (backends []*Backend) {
 	return
 }
 
+// NextIndex returns the next index for loadbalancer interface
 func (b *Pool) NextIndex() int {
 	return int(atomic.AddUint64(&b.current, uint64(1)) % uint64(len(b.backends)))
 }
