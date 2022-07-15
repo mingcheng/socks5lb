@@ -29,18 +29,19 @@ type Status struct {
 
 type Server struct {
 	Pool   *Pool
-	Status map[*Backend]Status
+	Config *ServerConfig
 
 	healthCheckTimer *time.Ticker
-	socks5Listener   net.Listener
-	tproxyListener   net.Listener
+
+	socks5Listener net.Listener
+	tproxyListener net.Listener
 }
 
 func (s *Server) AddBackend() error {
 	return nil
 }
 
-func (s *Server) Start(socksListenAddr, tproxyListenAddr string) (err error) {
+func (s *Server) Start() (err error) {
 	duration := SecFromEnv("CHECK_TIME_INTERVAL", 60)
 
 	s.healthCheckTimer = time.NewTicker(duration)
@@ -51,27 +52,44 @@ func (s *Server) Start(socksListenAddr, tproxyListenAddr string) (err error) {
 		}
 	}()
 
-	if tproxyListenAddr != "" {
-		log.Tracef("start linux transparent proxy on %s", tproxyListenAddr)
+	if s.Config.TProxy.Addr != "" {
+		log.Tracef("start linux transparent proxy on %s", s.Config.TProxy.Addr)
 		go func() {
-			if err = s.ListenTProxy(tproxyListenAddr); err != nil {
-				log.Fatal(err)
+			if err = s.ListenTProxy(s.Config.TProxy.Addr); err != nil {
+				log.Error(err)
 			}
 		}()
 	}
 
-	log.Tracef("start sock5 proxy address on %s", socksListenAddr)
-	return s.ListenSocks5(socksListenAddr)
+	if s.Config.HTTP.Addr != "" {
+		log.Tracef("start http admin control on %s", s.Config.HTTP.Addr)
+		go func() {
+			if err = s.ListenHTTPAdmin(s.Config.HTTP.Addr); err != nil {
+				log.Error(err)
+			}
+		}()
+	}
+
+	log.Tracef("start sock5 proxy address on %s", s.Config.Sock5.Addr)
+	return s.ListenSocks5(s.Config.Sock5.Addr)
 }
 
 func (s *Server) Stop() (e error) {
 	log.Debug("shutting down the server")
 	s.healthCheckTimer.Stop()
-	go s.socks5Listener.Close()
-	go s.tproxyListener.Close()
+
+	if s.socks5Listener != nil {
+		go s.socks5Listener.Close()
+	}
+
+	if s.tproxyListener != nil {
+		go s.tproxyListener.Close()
+	}
+
 	return
 }
 
+// Transport is used to connect to the server and client each	other
 func (s *Server) Transport(dst, src io.ReadWriter) (err error) {
 	// @see https://github.com/ginuerzh/gost/blob/0247b941ac31344f0d7b3c547941a051188ba202/server.go#L105
 	errs := make(chan error, 1)
@@ -93,4 +111,11 @@ func (s *Server) Transport(dst, src io.ReadWriter) (err error) {
 
 	log.Tracef("transport stream is finished")
 	return
+}
+
+func NewServer(pool *Pool, config ServerConfig) (*Server, error) {
+	return &Server{
+		Pool:   pool,
+		Config: &config,
+	}, nil
 }

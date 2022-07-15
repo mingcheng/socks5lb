@@ -12,11 +12,9 @@
 
 package socks5lb
 
-import (
-	"fmt"
-)
+import "fmt"
 
-func (s *Server) ListenTProxy(_ string) (err error) {
-	err = fmt.Errorf("sorry transparent proxy is ONLY supports Linux platform")
-	return
+// ListenTProxy is not implemented by default
+func (s *Server) ListenTProxy(_ string) error {
+	return fmt.Errorf("sorry transparent proxy is ONLY supports Linux platform")
 }

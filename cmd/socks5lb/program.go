@@ -20,8 +20,7 @@ import "github.com/judwhite/go-svc"
 // program to run a specific version of the local package socks5lb
 type program struct {
 	Config *socks5lb.Configure
-	pool   *socks5lb.Pool
-	Server socks5lb.Server
+	Server *socks5lb.Server
 }
 
 // Init to initial the program
@@ -32,21 +31,23 @@ func (p *program) Init(env svc.Environment) (err error) {
 
 	for _, v := range p.Config.Backends {
 		log.Tracef("add backend %s", v.Addr)
-		backend := socks5lb.NewBackend(v.Addr, *v.CheckConfig)
-		pool.Add(backend)
+		backend := socks5lb.NewBackend(v.Addr, v.CheckConfig)
+		_ = pool.Add(backend)
 	}
 
-	p.Server = socks5lb.Server{
-		Pool: pool,
-	}
+	p.Server, err = socks5lb.NewServer(pool, p.Config.ServerConfig)
 
 	return
 }
 
 // Start when the program is start
 func (p *program) Start() (err error) {
+	log.Infof("start the program")
 	go func() {
-		err = p.Server.Start(p.Config.Socks5Listen, p.Config.TproxyListen)
+		if err = p.Server.Start(); err != nil {
+			log.Error(err)
+			p.Server.Stop()
+		}
 	}()
 
 	return
@@ -54,5 +55,6 @@ func (p *program) Start() (err error) {
 
 // Stop when the program is stop
 func (p *program) Stop() (err error) {
+	log.Infof("stop the program")
 	return p.Server.Stop()
 }

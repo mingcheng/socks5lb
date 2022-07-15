@@ -3,7 +3,7 @@
  * Author: Ming Cheng<mingcheng@outlook.com>
  *
  * Created Date: Wednesday, June 22nd 2022, 12:39:47 pm
- * Last Modified: Thursday, July 7th 2022, 6:29:42 pm
+ * Last Modified: Friday, July 15th 2022, 5:53:09 pm
  *
  * http://www.opensource.org/licenses/MIT
  */
@@ -23,8 +23,6 @@ import (
 	"os"
 )
 
-const AppName = "socks5lb"
-
 var (
 	config  *socks5lb.Configure
 	err     error
@@ -33,15 +31,14 @@ var (
 
 func init() {
 	log.SetOutput(os.Stdout)
+	log.SetLevel(log.ErrorLevel)
 
-	isDebug := socks5lb.GetEnv("DEBUG", "")
-	if isDebug != "" {
+	if socks5lb.DebugMode {
 		log.SetLevel(log.TraceLevel)
-	} else {
-		log.SetLevel(log.InfoLevel)
+		log.Debug("debug mode is On, its makess more noise on terminal")
 	}
 
-	flag.StringVar(&cfgPath, "c", "/etc/"+AppName+".yml", "configure file cfgPath")
+	flag.StringVar(&cfgPath, "c", "/etc/"+socks5lb.AppName+".yml", "configure file cfgPath")
 }
 
 // NewConfig returns a new Config instance
@@ -62,6 +59,7 @@ func NewConfig(path string) (config *socks5lb.Configure, err error) {
 }
 
 func main() {
+	log.Infof("%s v%s(%s), build on %s", socks5lb.AppName, socks5lb.Version, socks5lb.BuildCommit, socks5lb.BuildDate)
 	flag.Parse()
 
 	// read the config if err != nil

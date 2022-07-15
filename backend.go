@@ -11,28 +11,27 @@
 package socks5lb
 
 import (
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/txthinking/socks5"
 )
 
 type BackendCheckConfig struct {
-	CheckURL     string `yaml:"check_url"`
-	InitialAlive bool   `yaml:"initial_alive"`
-	Timeout      uint   `yaml:"timeout"`
+	CheckURL     string `yaml:"check_url" json:"check_url"`
+	InitialAlive bool   `yaml:"initial_alive" json:"initial_alive"`
+	Timeout      uint   `yaml:"timeout" json:"timeout"`
 }
 
 type Backend struct {
-	Addr           string              `yaml:"addr"`
-	Socks5UserName string              `yaml:"username"`
-	Socks5Password string              `yaml:"password"`
-	CheckConfig    *BackendCheckConfig `yaml:"check_config"`
+	Addr        string             `yaml:"addr" json:"addr" binding:"required"`
+	UserName    string             `yaml:"username" json:"username"`
+	Password    string             `yaml:"password" json:"password"`
+	CheckConfig BackendCheckConfig `yaml:"check_config" json:"check_config"`
 
-	mux   sync.RWMutex
 	alive bool
 }
 
@@ -42,25 +41,30 @@ func (b *Backend) Alive() bool {
 }
 
 // Check function to check the node healthy by given url
-func (b *Backend) Check() error {
-	b.mux.Lock()
-	defer b.mux.Unlock()
-
+func (b *Backend) Check() (err error) {
 	if url := b.CheckConfig.CheckURL; url != "" {
-		client, err := b.httpProxyClient()
-		if err != nil {
-			return err
+		var (
+			client *http.Client
+			resp   *http.Response
+		)
+
+		if client, err = b.httpProxyClient(); err != nil {
+			return
 		}
 
-		resp, err := client.Get(url)
+		resp, err = client.Get(url)
 		if err != nil || (resp != nil && resp.StatusCode != http.StatusOK) {
+			log.Error(err)
 			b.alive = false
-			return err
+		} else {
+			b.alive = true
 		}
+
+		return
 	}
 
-	b.alive = true
-	return nil
+	b.alive = b.CheckConfig.InitialAlive
+	return
 }
 
 // httpProxyClient to create http client with socks5 proxy
@@ -80,10 +84,12 @@ func (b *Backend) httpProxyClient() (*http.Client, error) {
 	}, nil
 }
 
+// socks5Client to create http client with socks5 proxy
 func (b *Backend) socks5Client(timeout int) (*socks5.Client, error) {
-	return socks5.NewClient(b.Addr, b.Socks5UserName, b.Socks5Password, timeout, timeout)
+	return socks5.NewClient(string(b.Addr), b.UserName, b.Password, timeout, timeout)
 }
 
+// Socks5Conn to create a connection by specific params
 func (b *Backend) Socks5Conn(network, addr string, timeout int) (cc net.Conn, err error) {
 	client, err := b.socks5Client(timeout)
 	if err != nil {
@@ -93,11 +99,12 @@ func (b *Backend) Socks5Conn(network, addr string, timeout int) (cc net.Conn, er
 	return client.Dial(network, addr)
 }
 
+// NewBackend creates a new Backend instance
 func NewBackend(addr string, config BackendCheckConfig) (backend *Backend) {
 	backend = &Backend{
 		Addr:        addr,
 		alive:       config.InitialAlive,
-		CheckConfig: &config,
+		CheckConfig: config,
 	}
 
 	return

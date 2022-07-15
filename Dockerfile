@@ -8,7 +8,7 @@ ENV BUILD_DIR ${GOPATH}/src/${PACKAGE}
 # Build
 COPY . ${BUILD_DIR}
 WORKDIR ${BUILD_DIR}
-RUN go build ./cmd/socks5lb && mv ./socks5lb /usr/bin/socks5lb
+RUN make build && mv ./socks5lb /usr/bin/socks5lb
 
 # Stage2
 FROM debian:bullseye

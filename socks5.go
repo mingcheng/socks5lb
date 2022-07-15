@@ -25,10 +25,11 @@ func (s *Server) ListenSocks5(addr string) (err error) {
 	defer s.socks5Listener.Close()
 
 	for {
-		socks5Conn, err := s.socks5Listener.Accept()
+		var socks5Conn net.Conn
+		socks5Conn, err = s.socks5Listener.Accept()
 		if err != nil {
 			log.Error(err)
-			continue
+			return
 		}
 
 		go func() {
@@ -41,13 +42,14 @@ func (s *Server) ListenSocks5(addr string) (err error) {
 			}
 
 			//log.Tracef("[socks5-tcp] %s -> %s", socks5Conn.RemoteAddr(), socks5Conn.LocalAddr())
-			backendConn, err := net.Dial("tcp", backend.Addr)
+			backendConn, err := net.Dial("tcp", string(backend.Addr))
 			if err != nil {
 				log.Error(err)
 				return
 			}
 			defer backendConn.Close()
 
+			// transport the socket connection directly to the backend
 			s.Transport(socks5Conn, backendConn)
 		}()
 	}

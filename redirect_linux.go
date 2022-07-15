@@ -25,6 +25,8 @@ import (
 )
 
 // getOriginalDstAddr to get the original address from the socket
+// this function is referenced from
+// https://github.com/ginuerzh/gost/blob/0247b941ac31344f0d7b3c547941a051188ba202/redirect.go#L72
 func getOriginalDstAddr(conn *net.TCPConn) (addr net.Addr, c *net.TCPConn, err error) {
 	defer conn.Close()
 
@@ -61,35 +63,46 @@ func getOriginalDstAddr(conn *net.TCPConn) (addr net.Addr, c *net.TCPConn, err e
 }
 
 var (
-	socks5Clients *socks5.Client
-	clientLock    sync.Mutex
+	currentSocks5Client *socks5.Client
+	updateClientLock    sync.Mutex
 )
 
-func (s *Server) socks5Client() (client *socks5.Client, err error) {
-	clientLock.Lock()
+// updateSocks5Client to connect to a proxy server
+func (s *Server) updateSocks5Client() (client *socks5.Client, err error) {
+	updateClientLock.Lock()
 
 	defer func() {
-		clientLock.Unlock()
-		if err != nil || client == nil {
+		if err != nil {
 			log.Error(err)
-			socks5Clients = nil
 			return
 		}
 
-		log.Infof("markup current proxy connection: %v", client.Server)
-		socks5Clients = client
+		if client != nil && currentSocks5Client != client {
+			if currentSocks5Client != nil && (currentSocks5Client.TCPConn != nil || currentSocks5Client.UDPConn != nil) {
+				log.Tracef("close pervious client before update the current socks5 client")
+				_ = currentSocks5Client.Close()
+				currentSocks5Client = nil
+			}
+
+			log.Infof("markup current socks5 proxy client %v", client.Server)
+			currentSocks5Client = client
+		}
+
+		// lock the update client
+		updateClientLock.Unlock()
 	}()
 
+	// found a available backend
 	backend := s.Pool.Next()
-	if backend == nil {
-		log.Error("sorry, we don't have healthy backend, so close the connection")
-		socks5Clients = nil
-		return
+	if backend != nil {
+		return backend.socks5Client(0)
 	}
 
-	return backend.socks5Client(0)
+	err = errors.New("sorry, we don't have healthy backend, so close the connection")
+	return
 }
 
+// ListenTProxy is listening the local tcp port on the given address
 func (s *Server) ListenTProxy(addr string) (err error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
@@ -112,14 +125,18 @@ func (s *Server) ListenTProxy(addr string) (err error) {
 	defer timer.Stop()
 	go func() {
 		for ; true; <-timer.C {
-			_, err := s.socks5Client()
-			if err != nil {
+			log.Tracef("start to update current socks5 proxy client")
+			if _, err := s.updateSocks5Client(); err != nil {
 				log.Error(err)
 			}
 		}
 	}()
 
 	for {
+		if s.tproxyListener == nil {
+			return fmt.Errorf("transparent socket listenser is closed")
+		}
+
 		tproxyConn, err := s.tproxyListener.Accept()
 		if err != nil {
 			log.Error(err)
@@ -129,11 +146,11 @@ func (s *Server) ListenTProxy(addr string) (err error) {
 		go func() {
 			defer tproxyConn.Close()
 
-			if socks5Clients == nil {
+			if currentSocks5Client == nil {
 				log.Error("not found any suitable socks5 clients")
 				return
 			}
-			log.Tracef("using connected socks5 proxy client: %v", socks5Clients.Server)
+			log.Tracef("using connected socks5 proxy client: %v", currentSocks5Client.Server)
 
 			connect, ok := tproxyConn.(*tproxy.Conn)
 			if !ok {
@@ -150,7 +167,7 @@ func (s *Server) ListenTProxy(addr string) (err error) {
 			defer orgDstConn.Close()
 
 			log.Tracef("[red-tcp] %s -> %s", srcAddr, dstAddr)
-			socks5Conn, err := socks5Clients.Dial("tcp", dstAddr.String())
+			socks5Conn, err := currentSocks5Client.Dial("tcp", dstAddr.String())
 			if err != nil {
 				log.Error(err)
 			}
