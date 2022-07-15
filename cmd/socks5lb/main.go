@@ -31,6 +31,10 @@ var (
 	cfgPath string
 )
 
+var (
+	version, commit, date string
+)
+
 func init() {
 	log.SetOutput(os.Stdout)
 
@@ -63,6 +67,8 @@ func NewConfig(path string) (config *socks5lb.Configure, err error) {
 
 func main() {
 	flag.Parse()
+
+	log.Infof("%s v%s(%s), build on %s", AppName, version, commit, date)
 
 	// read the config if err != nil
 	if config, err = NewConfig(cfgPath); err != nil {
