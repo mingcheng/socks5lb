@@ -17,6 +17,7 @@ steps:
     image: golang:1.18
     environment:
       GOPROXY: https://goproxy.cn
+      DEBUG: "true"
     volumes:
       - name: docker-sock
         path: /var/run/docker.sock
