@@ -33,6 +33,6 @@ docker_image_push: docker_image_build
 
 clean:
 	@$(GO) clean ./...
-	@rm $(BINARY)
+	@rm -f $(BINARY)
 
 .PHONY: install test clean  docker_image_build docker_image_push
