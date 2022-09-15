@@ -63,7 +63,7 @@ backends:
 
 ### 部署
 
-首先，以下是 docker-compose 相关的配置，建议使用 `network_mode: 'host'` 方式，防止 DOCK 的 iptables 造成网络联通错误
+首先，以下是 docker-compose 相关的配置，建议使用 `network_mode: 'host'` 方式，防止过多的网络层转换造成网络联通错误：
 
 ```yaml
 version: "3"
