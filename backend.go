@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -35,6 +36,7 @@ type Backend struct {
 
 	alive  bool
 	ticker *time.Ticker
+	mutex  sync.Mutex
 }
 
 // Alive returns backend status
@@ -59,6 +61,9 @@ func (b *Backend) PeriodCheck() (err error) {
 
 // Check function to check the node healthy by given url
 func (b *Backend) Check() (err error) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
 	if url := b.CheckConfig.CheckURL; url != "" {
 		var (
 			client *http.Client
