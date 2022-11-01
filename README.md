@@ -4,7 +4,8 @@
 
 有时候我们在使用 Socks5 Proxy 无法联通的情况，这有可能是因为网络或者线路的调整和波动，这时候往往需要我们自己手工的切换节点，非常的麻烦。
 
-这个工具就是为了解决上述问题而编写的，它简单的说就是个针对 Socks5 Proxy 的前置负载均衡，能够提供经过检验的稳定可靠的 Socks Proxy 节点。
+这个工具就是为了解决上述问题而编写的，它简单的说就是个针对 Socks5 Proxy 的前置负载均衡，能够提供经过检验的稳定可靠的 Socks
+Proxy 节点。
 
 如果是针对 Linux 系统下同时能够提供透明代理以及针对 Socks5
 协议的转换，而且方便搭配 ipset 以及 iptables 使用。
@@ -17,6 +18,7 @@
 
 ## 更新记录
 
+- `20221101` 增加针对 macOS 的 universal 二进制版本，每个后台断点独立的时间检查配置
 - `20220716` 修复部分链接的性能问题，增加 HTTP 管理接口
 - `20220706` 完成针对 Linux 的透明网关功能
 - `20220620` 完成基本功能
@@ -27,7 +29,8 @@
 
 ## 配置
 
-首先是针对 socks5lb 的基本配置，例如以下的配置配置了三个 Socks5 Proxy 同时暴露到本地的 1080 端口，针对 Linux 的透明代理暴露在 8848 端口。
+首先是针对 socks5lb 的基本配置，例如以下的配置配置了三个 Socks5 Proxy 同时暴露到本地的 1080 端口，针对 Linux 的透明代理暴露在
+8848 端口。
 
 ```yaml
 server:
@@ -42,23 +45,26 @@ backends:
     check_config:
       check_url: https://www.google.com/robots.txt
       initial_alive: true
-      timeout: 3
+      timeout: 6s
+      period: 120s
   - addr: 10.1.0.254:1086
     check_config:
       check_url: https://www.google.com/robots.txt
       initial_alive: false
-      timeout: 30
+      timeout: 6s
+      period: 120s
   - addr: 172.16.100.254:1086
     check_config:
       check_url: https://www.google.com/robots.txt
       initial_alive: true
-      timeout: 3
+      timeout: 3s
+      period: 60s
 ```
 
 #### 环境变量
 
-- `SELECT_TIME_INTERVAL` 自动切换代理的时间，单位为秒（默认 300 秒，五分钟）
-- `CHECK_TIME_INTERVAL` 健康检查的轮询时间，单位为秒（默认一分钟、60 秒）
+- `CHECK_INTERVAL` 检查后端端点的单位时间，默认 60 秒
+- `CHECK_TIMEOUT` 默认健康检查的超时时间，默认 10 秒
 - `DEBUG` 是否打开 debug 模式
 
 ### 部署
@@ -76,7 +82,7 @@ services:
       - 8.8.4.4
     environment:
       TZ: "Asia/Shanghai"
-      CHECK_TIME_INTERVAL: 3600
+      CHECK_INTERVAL: 180s
     network_mode: "host"
     privileged: true
     volumes:

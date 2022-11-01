@@ -12,7 +12,7 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
+	"fmt"
 	"syscall"
 
 	"github.com/judwhite/go-svc"
@@ -35,19 +35,17 @@ func init() {
 
 	if socks5lb.DebugMode {
 		log.SetLevel(log.TraceLevel)
-		log.Debug("debug mode is On, its makess more noise on terminal")
+		log.Debug("debug mode is on, its will makes more noise on terminal")
 	}
 
-	flag.StringVar(&cfgPath, "c", "/etc/"+socks5lb.AppName+".yml", "configure file cfgPath")
+	flag.StringVar(&cfgPath, "c", fmt.Sprintf("/etc/%s.yml", socks5lb.AppName), "the socks5lb configure file path")
 }
 
 // NewConfig returns a new Config instance
 func NewConfig(path string) (config *socks5lb.Configure, err error) {
-	var (
-		data []byte
-	)
+	var data []byte
 
-	if data, err = ioutil.ReadFile(path); err != nil {
+	if data, err = os.ReadFile(path); err != nil {
 		return
 	}
 

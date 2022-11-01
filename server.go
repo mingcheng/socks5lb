@@ -27,31 +27,28 @@ type Status struct {
 	FailedTimes       uint
 }
 
+// Server that manages the proxy client
 type Server struct {
 	Pool   *Pool
 	Config *ServerConfig
-
-	healthCheckTimer *time.Ticker
 
 	socks5Listener net.Listener
 	tproxyListener net.Listener
 }
 
+// AddBackend adds a backend to the pool
 func (s *Server) AddBackend() error {
+	// @TODO: need implemented
 	return nil
 }
 
+// Start the proxy server and check
 func (s *Server) Start() (err error) {
-	duration := SecFromEnv("CHECK_TIME_INTERVAL", 60)
 
-	s.healthCheckTimer = time.NewTicker(duration)
-	go func() {
-		log.Infof("auto check backend healthy, every %v", duration)
-		for ; true; <-s.healthCheckTimer.C {
-			s.Pool.Check()
-		}
-	}()
+	// start goroutine for healthy check
+	go s.Pool.Check()
 
+	// start linux transport proxy if configure not empty
 	if s.Config.TProxy.Addr != "" {
 		log.Tracef("start linux transparent proxy on %s", s.Config.TProxy.Addr)
 		go func() {
@@ -61,6 +58,7 @@ func (s *Server) Start() (err error) {
 		}()
 	}
 
+	// start the http mirror server if configured
 	if s.Config.HTTP.Addr != "" {
 		log.Tracef("start http admin control on %s", s.Config.HTTP.Addr)
 		go func() {
@@ -76,7 +74,9 @@ func (s *Server) Start() (err error) {
 
 func (s *Server) Stop() (e error) {
 	log.Debug("shutting down the server")
-	s.healthCheckTimer.Stop()
+	if e = s.Pool.Close(); e != nil {
+		return
+	}
 
 	if s.socks5Listener != nil {
 		go s.socks5Listener.Close()
