@@ -114,6 +114,20 @@ func (s *Server) Transport(dst, src io.ReadWriter) (err error) {
 }
 
 func NewServer(pool *Pool, config ServerConfig) (*Server, error) {
+
+	// check if the tcp address is already used
+	for _, addr := range []string{config.Sock5.Addr, config.TProxy.Addr, config.HTTP.Addr} {
+		if addr != "" {
+			l, e := net.Listen("tcp", addr)
+			if l == nil || e != nil {
+				log.Error(e.Error())
+				return nil, e
+			} else {
+				_ = l.Close()
+			}
+		}
+	}
+
 	return &Server{
 		Pool:   pool,
 		Config: &config,
