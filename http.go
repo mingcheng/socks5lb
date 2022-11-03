@@ -46,10 +46,8 @@ func (s *Server) setupAPIRouter(apiGroup *gin.RouterGroup) (err error) {
 			backends = s.Pool.AllHealthy()
 		}
 
-		if len(backends) == 0 {
+		if len(backends) <= 0 {
 			err = fmt.Errorf("the backends are empty, so return empty json")
-			c.JSON(http.StatusNoContent, map[string]interface{}{})
-			return
 		}
 
 		c.JSON(http.StatusOK, backends)
