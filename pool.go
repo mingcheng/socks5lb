@@ -48,22 +48,24 @@ func (b *Pool) Remove(addr string) (err error) {
 }
 
 // All returns all backends
-func (b *Pool) All() (backends []*Backend) {
+func (b *Pool) All() []*Backend {
+	backends := make([]*Backend, 0)
 	for _, v := range b.backends {
 		backends = append(backends, v)
 	}
-	return
+	return backends
 }
 
 // AllHealthy returns all healthy backends
-func (b *Pool) AllHealthy() (backends []*Backend) {
+func (b *Pool) AllHealthy() []*Backend {
+	backends := make([]*Backend, 0)
 	for _, v := range b.backends {
 		if v.Alive() {
 			backends = append(backends, v)
 		}
 	}
 
-	return
+	return backends
 }
 
 // NextIndex returns the next index for loadbalancer interface
