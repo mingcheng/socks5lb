@@ -3,7 +3,7 @@
  * Author: Ming Cheng<mingcheng@outlook.com>
  *
  * Created Date: Wednesday, June 22nd 2022, 12:39:47 pm
- * Last Modified: Friday, July 15th 2022, 5:53:09 pm
+ * Last Modified: Tuesday, November 1st 2022, 2:36:05 pm
  *
  * http://www.opensource.org/licenses/MIT
  */
@@ -65,7 +65,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Call svc.Run to start your Program/service.
+	// call svc run to start the service
 	if err := svc.Run(&program{
 		Config: config,
 	}, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill); err != nil {
