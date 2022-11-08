@@ -14,7 +14,7 @@ name: build_and_run_on_docker
 
 steps:
   - name: build
-    image: golang:1.18
+    image: golang:1.19
     environment:
       GOPROXY: https://goproxy.cn
       DEBUG: "true"
@@ -22,7 +22,7 @@ steps:
       - name: docker-sock
         path: /var/run/docker.sock
     commands:
-      - make build
+      - make clean build
       - ./socks5lb -h
 
   - name: publish-to-ghcr
@@ -47,7 +47,7 @@ steps:
       dockerfile: Dockerfile
       tags:
         - latest
-        - 1.1.0
+        - 1.2.1
 
 volumes:
   - name: docker-sock
