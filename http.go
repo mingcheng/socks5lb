@@ -46,10 +46,14 @@ func (s *Server) setupAPIRouter(apiGroup *gin.RouterGroup) (err error) {
 			backends = s.Pool.AllHealthy()
 		}
 
+		if len(backends) <= 0 {
+			err = fmt.Errorf("the backends are empty, so return empty json")
+		}
+
 		c.JSON(http.StatusOK, backends)
 	})
 
-	// to delete a sinle backend
+	// to delete a single backend
 	apiGroup.DELETE("delete", func(c *gin.Context) {
 		addr := c.Query("addr")
 		if addr == "" {
@@ -90,7 +94,7 @@ func (s *Server) setupAPIRouter(apiGroup *gin.RouterGroup) (err error) {
 	return
 }
 
-// setupRouter to setup the http server routers
+// setupRouter to set up the http server routers
 func (s *Server) setupRouter() (err error) {
 	if engine != nil {
 		return fmt.Errorf("the Gin engine is alreay instanced, maybe is running")

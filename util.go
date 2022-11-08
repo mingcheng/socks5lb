@@ -28,14 +28,23 @@ func GetEnv(name, def string) string {
 	return strings.TrimSpace(result)
 }
 
-// SecFromEnv to get the seconds duration from system environment
-func SecFromEnv(name string, defVal uint64) time.Duration {
-	intervalStr := GetEnv(name, strconv.FormatUint(defVal, 10))
-	interval, err := strconv.ParseUint(intervalStr, 10, 64)
+// DurationFromEnv to get the seconds duration from system environment
+func DurationFromEnv(name string, defVal uint64) time.Duration {
+	str := GetEnv(name, strconv.FormatUint(defVal, 10))
+	interval, err := strconv.ParseUint(str, 10, 64)
 	if err != nil {
 		log.Debugf("invalid interval %v, reset to 1s", err)
 		interval = defVal
 	}
 
 	return time.Duration(interval) * time.Second
+}
+
+func ParseDuration(duration string, def time.Duration) time.Duration {
+	d, err := time.ParseDuration(duration)
+	if err != nil || d <= 0 {
+		return def
+	}
+
+	return d
 }

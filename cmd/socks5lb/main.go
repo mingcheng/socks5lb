@@ -3,7 +3,7 @@
  * Author: Ming Cheng<mingcheng@outlook.com>
  *
  * Created Date: Wednesday, June 22nd 2022, 12:39:47 pm
- * Last Modified: Friday, July 15th 2022, 5:53:09 pm
+ * Last Modified: Tuesday, November 1st 2022, 2:36:05 pm
  *
  * http://www.opensource.org/licenses/MIT
  */
@@ -12,7 +12,7 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
+	"fmt"
 	"syscall"
 
 	"github.com/judwhite/go-svc"
@@ -35,19 +35,17 @@ func init() {
 
 	if socks5lb.DebugMode {
 		log.SetLevel(log.TraceLevel)
-		log.Debug("debug mode is On, its makess more noise on terminal")
+		log.Debug("debug mode is on, its will makes more noise on terminal")
 	}
 
-	flag.StringVar(&cfgPath, "c", "/etc/"+socks5lb.AppName+".yml", "configure file cfgPath")
+	flag.StringVar(&cfgPath, "c", fmt.Sprintf("/etc/%s.yml", socks5lb.AppName), "the socks5lb configure file path")
 }
 
 // NewConfig returns a new Config instance
 func NewConfig(path string) (config *socks5lb.Configure, err error) {
-	var (
-		data []byte
-	)
+	var data []byte
 
-	if data, err = ioutil.ReadFile(path); err != nil {
+	if data, err = os.ReadFile(path); err != nil {
 		return
 	}
 
@@ -67,7 +65,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Call svc.Run to start your Program/service.
+	// call svc run to start the service
 	if err := svc.Run(&program{
 		Config: config,
 	}, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill); err != nil {

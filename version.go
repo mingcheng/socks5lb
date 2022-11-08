@@ -16,6 +16,7 @@ var (
 	StartTime time.Time
 )
 
+// init function for storage some runtime information
 func init() {
 	mode := GetEnv("DEBUG", "")
 	DebugMode, _ = strconv.ParseBool(mode)

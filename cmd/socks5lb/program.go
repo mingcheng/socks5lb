@@ -3,7 +3,7 @@
  * Author: Ming Cheng<mingcheng@outlook.com>
  *
  * Created Date: Wednesday, July 6th 2022, 2:14:35 pm
- * Last Modified: Thursday, July 7th 2022, 6:29:55 pm
+ * Last Modified: Tuesday, November 1st 2022, 2:33:21 pm
  *
  * http://www.opensource.org/licenses/MIT
  */
@@ -11,11 +11,10 @@
 package main
 
 import (
+	"github.com/judwhite/go-svc"
 	"github.com/mingcheng/socks5lb"
 	log "github.com/sirupsen/logrus"
 )
-
-import "github.com/judwhite/go-svc"
 
 // program to run a specific version of the local package socks5lb
 type program struct {
@@ -53,7 +52,7 @@ func (p *program) Start() (err error) {
 	return
 }
 
-// Stop when the program is stop
+// Stop when the program is stopped
 func (p *program) Stop() (err error) {
 	log.Infof("stop the program")
 	return p.Server.Stop()
