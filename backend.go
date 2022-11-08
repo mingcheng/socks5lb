@@ -11,19 +11,21 @@
 package socks5lb
 
 import (
+	"context"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
+	"github.com/txthinking/socks5"
 	"net"
 	"net/http"
+	"strconv"
+	"sync"
 	"time"
-
-	"github.com/txthinking/socks5"
 )
 
 type BackendCheckConfig struct {
 	CheckURL     string `yaml:"check_url" json:"check_url"`
 	InitialAlive bool   `yaml:"initial_alive" json:"initial_alive"`
-	Timeout      uint   `yaml:"timeout" json:"timeout"`
+	Timeout      string `yaml:"timeout" json:"timeout"`
+	Period       string `yaml:"period" json:"period"`
 }
 
 type Backend struct {
@@ -32,7 +34,9 @@ type Backend struct {
 	Password    string             `yaml:"password" json:"password"`
 	CheckConfig BackendCheckConfig `yaml:"check_config" json:"check_config"`
 
-	alive bool
+	alive  bool
+	ticker *time.Ticker
+	mutex  sync.Mutex
 }
 
 // Alive returns backend status
@@ -40,8 +44,26 @@ func (b *Backend) Alive() bool {
 	return b.alive
 }
 
+// PeriodCheck to check if backend is healthy periodically
+func (b *Backend) PeriodCheck() (err error) {
+	period := ParseDuration(b.CheckConfig.Period, DurationFromEnv("CHECK_INTERVAL", 60))
+	log.Debugf("period check for backend %s is %d", b.Addr, period)
+
+	b.ticker = time.NewTicker(period)
+	log.Infof("auto check backend healthy, every %v", b.ticker)
+
+	for ; true; <-b.ticker.C {
+		b.Check()
+	}
+
+	return nil
+}
+
 // Check function to check the node healthy by given url
 func (b *Backend) Check() (err error) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
 	if url := b.CheckConfig.CheckURL; url != "" {
 		var (
 			client *http.Client
@@ -74,13 +96,18 @@ func (b *Backend) httpProxyClient() (*http.Client, error) {
 	// setup a http client
 	httpTransport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return b.Socks5Conn("tcp", addr, int(timeout))
+			timeoutInt, _ := strconv.ParseInt(timeout, 10, 64)
+			log.Tracef("the timeout int value is %v", timeoutInt)
+			return b.Socks5Conn("tcp", addr, int(timeoutInt))
 		},
 	}
 
+	d := ParseDuration(timeout, DurationFromEnv("CHECK_TIMEOUT", 10))
+	log.Tracef("timeout is %v", d)
+
 	return &http.Client{
 		Transport: httpTransport,
-		Timeout:   time.Duration(timeout) * time.Second,
+		Timeout:   d,
 	}, nil
 }
 
@@ -97,6 +124,16 @@ func (b *Backend) Socks5Conn(network, addr string, timeout int) (cc net.Conn, er
 	}
 
 	return client.Dial(network, addr)
+}
+
+// StopCheck to stop health check
+func (b *Backend) StopCheck() error {
+	if b.ticker != nil {
+		b.ticker.Stop()
+		b.ticker = nil
+	}
+
+	return nil
 }
 
 // NewBackend creates a new Backend instance

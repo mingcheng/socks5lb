@@ -12,10 +12,9 @@ package socks5lb
 
 import (
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"sync"
 	"sync/atomic"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type Pool struct {
@@ -24,7 +23,7 @@ type Pool struct {
 	lock     sync.Mutex
 }
 
-// Add add a backend to the pool
+// Add a backend to the pool
 func (b *Pool) Add(backend *Backend) (err error) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -36,7 +35,7 @@ func (b *Pool) Add(backend *Backend) (err error) {
 	return
 }
 
-// Remove remove a backend from the pool
+// Remove a backend from the pool
 func (b *Pool) Remove(addr string) (err error) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -49,22 +48,24 @@ func (b *Pool) Remove(addr string) (err error) {
 }
 
 // All returns all backends
-func (b *Pool) All() (backends []*Backend) {
+func (b *Pool) All() []*Backend {
+	backends := make([]*Backend, 0)
 	for _, v := range b.backends {
 		backends = append(backends, v)
 	}
-	return
+	return backends
 }
 
 // AllHealthy returns all healthy backends
-func (b *Pool) AllHealthy() (backends []*Backend) {
+func (b *Pool) AllHealthy() []*Backend {
+	backends := make([]*Backend, 0)
 	for _, v := range b.backends {
 		if v.Alive() {
 			backends = append(backends, v)
 		}
 	}
 
-	return
+	return backends
 }
 
 // NextIndex returns the next index for loadbalancer interface
@@ -80,7 +81,7 @@ func (b *Pool) Next() *Backend {
 	backends := b.AllHealthy()
 	log.Tracef("found all %d available backends", len(backends))
 
-	// can not found any backends available
+	// not found any backends available
 	if len(backends) <= 0 {
 		return nil
 	}
@@ -109,14 +110,25 @@ func (b *Pool) Next() *Backend {
 
 // Check if we have an alive backend
 func (b *Pool) Check() {
-	for _, b := range b.backends {
-		err := b.Check()
-		if err != nil {
-			log.Errorf("check backend %s is failed, error %v", b.Addr, err)
-		} else {
-			log.Debugf("check backend %s is successful", b.Addr)
-		}
+	for _, v := range b.backends {
+		backend := v
+		go func() {
+			err := backend.PeriodCheck()
+			if err != nil {
+				log.Errorf("check backend %s is failed, error %v", backend.Addr, err)
+			} else {
+				log.Debugf("check backend %s is successful", backend.Addr)
+			}
+		}()
 	}
+}
+
+func (b *Pool) Close() error {
+	for _, v := range b.backends {
+		_ = v.StopCheck()
+	}
+
+	return nil
 }
 
 var (

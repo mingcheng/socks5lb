@@ -118,7 +118,7 @@ func (s *Server) ListenTProxy(addr string) (err error) {
 	defer s.tproxyListener.Close()
 
 	// connect to available socks5 proxy server
-	selectTimeInterval := SecFromEnv("SELECT_TIME_INTERVAL", 300)
+	selectTimeInterval := DurationFromEnv("SELECT_TIME_INTERVAL", 300)
 	log.Infof("auto select the socks5 proxy server every %v", selectTimeInterval)
 
 	timer := time.NewTicker(selectTimeInterval)
