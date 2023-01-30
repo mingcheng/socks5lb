@@ -1,9 +1,8 @@
 module github.com/mingcheng/socks5lb
 
-go 1.18
+go 1.19
 
 require (
-	github.com/LiamHaworth/go-tproxy v0.0.0-20190726054950-ef7efd7f24ed
 	github.com/gin-gonic/gin v1.8.1
 	github.com/judwhite/go-svc v1.2.1
 	github.com/rocksolidlabs/gin-logrus v0.0.0-20180520211829-e80b1f0c4a0c
