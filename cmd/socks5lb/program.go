@@ -24,7 +24,7 @@ type program struct {
 }
 
 // Init to initial the program
-func (p *program) Init(env svc.Environment) (err error) {
+func (p *program) Init(svc.Environment) (err error) {
 
 	log.Tracef("new initial backend pools")
 	pool := socks5lb.NewPool()
