@@ -52,8 +52,8 @@ func (b *Backend) Check() (err error) {
 			return
 		}
 
-		resp, err = client.Get(url)
-		if err != nil || (resp != nil && resp.StatusCode != http.StatusOK) {
+		resp, err = client.Head(url)
+		if err != nil || (resp != nil && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusMovedPermanently && resp.StatusCode != http.StatusFound) {
 			log.Error(err)
 			b.alive = false
 		} else {
