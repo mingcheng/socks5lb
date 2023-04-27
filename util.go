@@ -3,7 +3,7 @@
  * Author: Ming Cheng<mingcheng@outlook.com>
  *
  * Created Date: Thursday, June 23rd 2022, 8:41:25 pm
- * Last Modified: Thursday, July 7th 2022, 6:31:41 pm
+ * Last Modified: Thursday, February 16th 2023, 3:38:36 pm
  *
  * http://www.opensource.org/licenses/MIT
  */
@@ -40,6 +40,7 @@ func DurationFromEnv(name string, defVal uint64) time.Duration {
 	return time.Duration(interval) * time.Second
 }
 
+// ParseDuration to parse the duration string or return the default value
 func ParseDuration(duration string, def time.Duration) time.Duration {
 	d, err := time.ParseDuration(duration)
 	if err != nil || d <= 0 {

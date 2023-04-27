@@ -3,7 +3,7 @@
  * Author: Ming Cheng<mingcheng@outlook.com>
  *
  * Created Date: Wednesday, June 22nd 2022, 12:39:47 pm
- * Last Modified: Tuesday, November 1st 2022, 2:36:05 pm
+ * Last Modified: Thursday, February 16th 2023, 3:47:25 pm
  *
  * http://www.opensource.org/licenses/MIT
  */
@@ -57,7 +57,16 @@ func NewConfig(path string) (config *socks5lb.Configure, err error) {
 }
 
 func main() {
-	log.Infof("%s v%s(%s), build on %s", socks5lb.AppName, socks5lb.Version, socks5lb.BuildCommit, socks5lb.BuildDate)
+	usageInfo := fmt.Sprintf("%s v%s(%s), build on %s", socks5lb.AppName, socks5lb.Version, socks5lb.BuildCommit, socks5lb.BuildDate)
+	log.Info(usageInfo)
+
+	// overwrite the default usage info
+	flag.Usage = func() {
+		fmt.Println(usageInfo)
+		flag.PrintDefaults()
+	}
+
+	// parse the command line flags
 	flag.Parse()
 
 	// read the config if err != nil

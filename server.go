@@ -3,7 +3,7 @@
  * Author: Ming Cheng<mingcheng@outlook.com>
  *
  * Created Date: Wednesday, July 6th 2022, 5:39:05 pm
- * Last Modified: Thursday, July 7th 2022, 6:31:24 pm
+ * Last Modified: Thursday, February 16th 2023, 3:37:21 pm
  *
  * http://www.opensource.org/licenses/MIT
  */
@@ -19,7 +19,6 @@ import (
 )
 
 // https://kasvith.me/posts/lets-create-a-simple-lb-go/
-
 type Status struct {
 	OutBytes, InBytes uint
 	LastOnline        time.Time

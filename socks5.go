@@ -3,7 +3,7 @@
  * Author: Ming Cheng<mingcheng@outlook.com>
  *
  * Created Date: Wednesday, July 6th 2022, 11:46:39 am
- * Last Modified: Thursday, July 7th 2022, 6:31:37 pm
+ * Last Modified: Thursday, February 16th 2023, 3:37:10 pm
  *
  * http://www.opensource.org/licenses/MIT
  */
@@ -15,15 +15,18 @@ import (
 	"net"
 )
 
-// ListenSocks5 to listen on a specific address
+// ListenSocks5 is used to listen the socks5 proxy port and forward the connection to the backend
 func (s *Server) ListenSocks5(addr string) (err error) {
 	s.socks5Listener, err = net.Listen("tcp", addr)
+
+	// if the address is already in use, abort the function and return the error
 	if err != nil {
 		log.Error(err)
 		return
 	}
 	defer s.socks5Listener.Close()
 
+	// start the socks5 server and listen the port
 	for {
 		var socks5Conn net.Conn
 		socks5Conn, err = s.socks5Listener.Accept()

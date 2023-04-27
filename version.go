@@ -16,11 +16,11 @@ var (
 	StartTime time.Time
 )
 
-// init function for storage some runtime information
+// init function to initialize the global variables
 func init() {
 	mode := GetEnv("DEBUG", "")
 	DebugMode, _ = strconv.ParseBool(mode)
 
-	// markup start time
+	// mark the start time
 	StartTime = time.Now()
 }

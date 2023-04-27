@@ -21,6 +21,7 @@ import (
 	"time"
 )
 
+// BackendCheckConfig is the config for backend health check
 type BackendCheckConfig struct {
 	CheckURL     string `yaml:"check_url" json:"check_url"`
 	InitialAlive bool   `yaml:"initial_alive" json:"initial_alive"`
@@ -28,6 +29,7 @@ type BackendCheckConfig struct {
 	Period       string `yaml:"period" json:"period"`
 }
 
+// Backend is the struct for backend node
 type Backend struct {
 	Addr        string             `yaml:"addr" json:"addr" binding:"required"`
 	UserName    string             `yaml:"username" json:"username"`
@@ -39,7 +41,7 @@ type Backend struct {
 	mutex  sync.Mutex
 }
 
-// Alive returns backend status
+// Alive returns the alive status of backend
 func (b *Backend) Alive() bool {
 	return b.alive
 }
