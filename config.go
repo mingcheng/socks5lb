@@ -15,10 +15,6 @@ type ServerConfig struct {
 		Addr string `yaml:"addr"`
 	} `yaml:"http"`
 
-	TProxy struct {
-		Addr string `yaml:"addr"`
-	} `yaml:"tproxy"`
-
 	Sock5 struct {
 		Addr string `yaml:"addr"`
 	} `yaml:"socks5"`

@@ -48,16 +48,6 @@ func (s *Server) Start() (err error) {
 	// start goroutine for healthy check
 	go s.Pool.Check()
 
-	// start linux transport proxy if configure not empty
-	if s.Config.TProxy.Addr != "" {
-		log.Tracef("start linux transparent proxy on %s", s.Config.TProxy.Addr)
-		go func() {
-			if err = s.ListenTProxy(s.Config.TProxy.Addr); err != nil {
-				log.Error(err)
-			}
-		}()
-	}
-
 	// start the http mirror server if configured
 	if s.Config.HTTP.Addr != "" {
 		log.Tracef("start http admin control on %s", s.Config.HTTP.Addr)
@@ -116,7 +106,7 @@ func (s *Server) Transport(dst, src io.ReadWriter) (err error) {
 func NewServer(pool *Pool, config ServerConfig) (*Server, error) {
 
 	// check if the tcp address is already used
-	for _, addr := range []string{config.Sock5.Addr, config.TProxy.Addr, config.HTTP.Addr} {
+	for _, addr := range []string{config.Sock5.Addr, config.HTTP.Addr} {
 		if addr != "" {
 			l, e := net.Listen("tcp", addr)
 			if l == nil || e != nil {
