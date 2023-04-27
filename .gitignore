@@ -7,3 +7,5 @@ Thumbs.db
 .DS*
 /.idea
 /socks5lb
+/*.exe
+/.task
