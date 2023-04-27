@@ -1,7 +1,7 @@
 version: '3'
 
 vars:
-  BINARY_NAME: socks.5lb{{exeExt}}
+  BINARY_NAME: socks5lb{{exeExt}}
   PACKAGE_NAME: github.com/mingcheng/socks5lb
 
 tasks:
