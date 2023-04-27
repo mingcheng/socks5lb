@@ -5,8 +5,8 @@ services:
       context: .
     image: ghcr.io/mingcheng/socks5lb
     environment:
-      CHECK_TIME_INTERVAL: 60
-      SELECT_TIME_INTERVAL: 120
+      CHECK_INTERVAL: 60s
+      CHECK_TIMEOUT: 10s
       DEBUG: "true"
     ports:
       - 1080:1080

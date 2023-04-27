@@ -19,7 +19,7 @@ func NewProxyPool(t *testing.T) (pool *Pool, err error) {
 	for _, v := range proxies {
 		err = pool.Add(NewBackend(v, BackendCheckConfig{
 			CheckURL:     "https://www.google.com/robots.txt",
-			Timeout:      5,
+			Timeout:      "5s",
 			InitialAlive: false,
 		}))
 	}
