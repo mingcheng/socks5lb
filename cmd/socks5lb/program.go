@@ -53,7 +53,7 @@ func (p *program) Start() (err error) {
 	return
 }
 
-// Stop when the program is stop
+// Stop when the program is stopped
 func (p *program) Stop() (err error) {
 	log.Infof("stop the program")
 	return p.Server.Stop()
