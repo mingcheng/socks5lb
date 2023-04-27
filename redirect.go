@@ -15,6 +15,7 @@ package socks5lb
 import "fmt"
 
 // ListenTProxy is not implemented by default
+// Deprecated: this function is not implemented in next version
 func (s *Server) ListenTProxy(_ string) error {
-	return fmt.Errorf("sorry transparent proxy is ONLY supports Linux platform")
+	return fmt.Errorf("sorry this feature is not implemented on this platform")
 }

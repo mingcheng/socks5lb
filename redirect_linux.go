@@ -103,6 +103,7 @@ func (s *Server) updateSocks5Client() (client *socks5.Client, err error) {
 }
 
 // ListenTProxy is listening the local tcp port on the given address
+// Deprecated: this feature will be disabled in the future
 func (s *Server) ListenTProxy(addr string) (err error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {

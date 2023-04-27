@@ -52,14 +52,14 @@ func (s *Server) Start() (err error) {
 		}
 	}()
 
-	if s.Config.TProxy.Addr != "" {
-		log.Tracef("start linux transparent proxy on %s", s.Config.TProxy.Addr)
-		go func() {
-			if err = s.ListenTProxy(s.Config.TProxy.Addr); err != nil {
-				log.Error(err)
-			}
-		}()
-	}
+	//if s.Config.TProxy.Addr != "" {
+	//	log.Tracef("start tproxy address on %s", s.Config.TProxy.Addr)
+	//	go func() {
+	//		if err = s.ListenTProxy(s.Config.TProxy.Addr); err != nil {
+	//			log.Error(err)
+	//		}
+	//	}()
+	//}
 
 	if s.Config.HTTP.Addr != "" {
 		log.Tracef("start http admin control on %s", s.Config.HTTP.Addr)

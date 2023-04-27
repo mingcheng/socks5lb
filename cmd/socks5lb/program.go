@@ -24,7 +24,7 @@ type program struct {
 }
 
 // Init to initial the program
-func (p *program) Init(env svc.Environment) (err error) {
+func (p *program) Init(svc.Environment) (err error) {
 
 	log.Tracef("new initial backend pools")
 	pool := socks5lb.NewPool()
@@ -53,7 +53,7 @@ func (p *program) Start() (err error) {
 	return
 }
 
-// Stop when the program is stop
+// Stop when the program is stopped
 func (p *program) Stop() (err error) {
 	log.Infof("stop the program")
 	return p.Server.Stop()

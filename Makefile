@@ -12,8 +12,6 @@ GO_FLAGS=-ldflags="\
 	-X 'github.com/mingcheng/socks5lb.BuildCommit=$(COMMIT_HASH)' \
 	-X 'github.com/mingcheng/socks5lb.BuildDate=$(shell date)'"
 
-
-
 # Make is verbose in Linux. Make it silent.
 MAKEFLAGS += --silent
 

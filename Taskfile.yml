@@ -1,0 +1,45 @@
+version: '3'
+
+vars:
+  BINARY_NAME: socks.5lb{{exeExt}}
+  PACKAGE_NAME: github.com/mingcheng/socks5lb
+
+tasks:
+  default:
+    deps:
+      - test
+      - build
+
+  build:
+    deps:
+      - clean
+    sources:
+      - ./cmd/socks5lb/*.go
+      - ./*.go
+    generates:
+      - '{{.BINARY_NAME}}'
+    cmds:
+      - >
+        go build -o {{.BINARY_NAME}} -ldflags="
+        -X '{{.PACKAGE_NAME}}.BuildCommit={{.GIT_COMMIT}}'
+        -X '{{.PACKAGE_NAME}}.BuildDate={{now}}'
+        -X '{{.PACKAGE_NAME}}.Version={{now | date "2006-01-02"}}'"
+        ./cmd/socks5lb
+    vars:
+      GIT_COMMIT:
+        sh: git rev-parse --short HEAD
+  #    silent: true
+
+  test:
+    deps:
+      - clean
+    cmds:
+      - go test -v ./...
+
+  clean:
+    aliases:
+      - cleanup
+      - clear
+    cmds:
+      - go clean ./...
+    silent: true
