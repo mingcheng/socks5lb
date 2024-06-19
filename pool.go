@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 
 	log "github.com/sirupsen/logrus"
+	"gvisor.dev/gvisor/pkg/sentry/kernel/time"
 )
 
 type Pool struct {
@@ -85,26 +86,17 @@ func (b *Pool) Next() *Backend {
 		return nil
 	}
 
-	// loop entire backends to find out an Alive backend
-	next := b.NextIndex()
-	// start from next and move a full cycle
-	l := len(backends) + next
-
-	for i := next; i < l; i++ {
-		// take an index by modding
-		idx := i % len(backends)
-
-		// if we have an alive backend, use it and store if its not the original one
-		if backends[idx].Alive() {
-			if i != next {
-				atomic.StoreUint64(&b.current, uint64(idx))
+	var backend *Backend = nil
+	latency := time.MaxDuration
+	for i := 0; i < len(backends); i++ {
+		if backends[i].Alive() {
+			if backends[i].Latency() < latency {
+				latency = backends[i].Latency()
+				backend = backends[i]
 			}
-
-			return backends[idx]
 		}
 	}
-
-	return nil
+	return backend
 }
 
 // Check if we have an alive backend

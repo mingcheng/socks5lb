@@ -11,11 +11,12 @@
 package socks5lb
 
 import (
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"net"
 	"net/http"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
 
 	"github.com/txthinking/socks5"
 )
@@ -32,12 +33,17 @@ type Backend struct {
 	Password    string             `yaml:"password" json:"password"`
 	CheckConfig BackendCheckConfig `yaml:"check_config" json:"check_config"`
 
-	alive bool
+	alive   bool
+	latency time.Duration
 }
 
 // Alive returns backend status
 func (b *Backend) Alive() bool {
 	return b.alive
+}
+
+func (b *Backend) Latency() time.Duration {
+	return b.latency
 }
 
 // Check function to check the node healthy by given url
@@ -51,12 +57,13 @@ func (b *Backend) Check() (err error) {
 		if client, err = b.httpProxyClient(); err != nil {
 			return
 		}
-
+		now := time.Now()
 		resp, err = client.Head(url)
 		if err != nil || (resp != nil && resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusMovedPermanently && resp.StatusCode != http.StatusFound) {
 			log.Error(err)
 			b.alive = false
 		} else {
+			b.latency = time.Since(now)
 			b.alive = true
 		}
 
