@@ -19,8 +19,8 @@ import (
 )
 
 type Pool struct {
-	backends map[string]*Backend
 	current  uint64
+	backends map[string]*Backend
 	lock     sync.Mutex
 }
 
