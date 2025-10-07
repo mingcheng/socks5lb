@@ -1,33 +1,37 @@
-# socks5lb，简单的 Socks5 代理负载均衡
+# socks5lb - Simple SOCKS5 Proxy Load Balancer
 
 ![socks5lb](./asserts/socks5lb.png)
 
-有时候我们在使用 Socks5 Proxy 无法联通的情况，这有可能是因为网络或者线路的调整和波动，这时候往往需要我们自己手工的切换节点，非常的麻烦。
+Sometimes SOCKS5 proxies become unreachable due to network fluctuations or routing changes, requiring manual node switching which can be tedious and time-consuming.
 
-这个工具就是为了解决上述问题而编写的，它简单的说就是个针对 Socks5 Proxy 的前置负载均衡，能够提供经过检验的稳定可靠的 Socks Proxy 节点。
+This tool solves that problem by acting as a front-end load balancer for SOCKS5 proxies, automatically routing traffic through verified, healthy proxy nodes.
 
-如果是针对 Linux 系统下同时能够提供透明代理以及针对 Socks5
-协议的转换，而且方便搭配 ipset 以及 iptables 使用。
+For Linux systems, it also provides transparent proxy capabilities with SOCKS5 protocol conversion, making it easy to integrate with ipset and iptables.
 
-目前实现的部分特性有：
+## Key Features
 
-- 能够提供 Socks5 Proxy 的负载均衡（轮询机制）同时提供健康检查；
-- 针对 Linux 提供[透明代理](https://www.kernel.org/doc/Documentation/networking/tproxy.txt)以及 Socks5 的协议转换；
-- 使用 Golang 编写，跨平台部署（例如部署到各种路由器上）和配置方便。
+- **Load Balancing**: Round-robin distribution across SOCKS5 proxies with automatic health checks
+- **Transparent Proxy**: Linux [TPROXY](https://www.kernel.org/doc/Documentation/networking/tproxy.txt) support with SOCKS5 protocol conversion
+- **Cross-Platform**: Written in Go for easy deployment across platforms (including routers)
 
-## 更新记录
+## Changelog
 
-- `20220716` 修复部分链接的性能问题，增加 HTTP 管理接口
-- `20220706` 完成针对 Linux 的透明网关功能
-- `20220620` 完成基本功能
+- `2025-10-07` Refactored codebase to update copyright information, improve health check mechanisms, and enhance concurrency handling with atomic operations and mutexes. Bump Go version to 1.25 and optimize HTTP server configurations.
+- `2022-07-16` Fixed connection performance issues, added HTTP management interface
+- `2022-07-06` Completed Linux transparent gateway functionality
+- `2022-06-20` Initial release with core features
 
-## 编译
+## Building
 
-建议使用 docker-compose 编译生成镜像文件，直接执行 docker-compose build 即可。
+The recommended way to build is using docker-compose:
 
-## 配置
+```bash
+docker-compose build
+```
 
-首先是针对 socks5lb 的基本配置，例如以下的配置配置了三个 Socks5 Proxy 同时暴露到本地的 1080 端口，针对 Linux 的透明代理暴露在 8848 端口。
+## Configuration
+
+Here's a basic configuration example with three SOCKS5 proxies exposed on local port 1080, and transparent proxy on port 8848 for Linux systems:
 
 ```yaml
 server:
@@ -55,15 +59,17 @@ backends:
       timeout: 3
 ```
 
-#### 环境变量
+### Environment Variables
 
-- `SELECT_TIME_INTERVAL` 自动切换代理的时间，单位为秒（默认 300 秒，五分钟）
-- `CHECK_TIME_INTERVAL` 健康检查的轮询时间，单位为秒（默认一分钟、60 秒）
-- `DEBUG` 是否打开 debug 模式
+- `SELECT_TIME_INTERVAL` - Automatic proxy switching interval in seconds (default: 300 seconds / 5 minutes)
+- `CHECK_TIME_INTERVAL` - Health check polling interval in seconds (default: 60 seconds / 1 minute)
+- `DEBUG` - Enable debug mode (true/false)
 
-### 部署
+## Deployment
 
-首先，以下是 docker-compose 相关的配置，建议使用 `network_mode: 'host'` 方式，防止 DOCK 的 iptables 造成网络联通错误
+### Docker Compose
+
+It's recommended to use `network_mode: 'host'` to avoid network connectivity issues caused by Docker's iptables rules:
 
 ```yaml
 version: "3"
@@ -83,28 +89,30 @@ services:
       - ./socks5lb.yml:/etc/socks5lb.yml:ro
 ```
 
-然后配置（供参考）iptable 参数，将所有的流量都通过 8848 代理端口转发（注意 redrock 链没有定义，请自行配置）。
+### iptables Configuration
+
+Example iptables rules to redirect traffic through port 8848 (note: the `redrock` ipset must be configured separately):
 
 ```shell
 iptables -t nat -I PREROUTING -p tcp -m set --match-set redrock dst -j REDIRECT --to-ports 8848
 iptables -t nat -I OUTPUT -p tcp -m set --match-set redrock dst -j REDIRECT --to-ports 8848
 ```
 
-### Web 管理
+## Web Management API
 
-自 1.1.0 版本实现了个简单的 Web 管理接口，用于动态的添加和删除代理服务器的配置，简单的说明如下：
+Version 1.1.0 introduced a simple web management interface for dynamic proxy configuration:
 
-#### GET `/version`
+### GET `/version`
 
-目前运行的版本、编译时间以及运行时间
+Returns current version, build time, and uptime information.
 
-#### GET `/api/all`
+### GET `/api/all`
 
-显示目前配置的代理服务器列表，如果加 `healthy=true` 参数，则只显示目前健康的代理节点
+Lists all configured proxy servers. Add `?healthy=true` parameter to show only healthy backends.
 
-#### PUT `/api/add`
+### PUT `/api/add`
 
-增加代理，这里说明下 Put 的 Body 为 JSON 数组，同时配置和代理的配置对应，例如
+Adds new proxy backends. The request body should be a JSON array of backend configurations:
 
 ```json
 [
@@ -123,9 +131,9 @@ iptables -t nat -I OUTPUT -p tcp -m set --match-set redrock dst -j REDIRECT --to
 ]
 ```
 
-然后返回的是已经加入的代理节点数量（整型数）。如果已经有配置的代理节点，则需要先删除以后再加入。
+Returns the number of backends successfully added. Note: Existing backends must be deleted before re-adding.
 
-示例 CURL 如下：
+Example using curl:
 
 ```
 curl -X "PUT" "<your-address>/api/add" \
@@ -140,19 +148,19 @@ curl -X "PUT" "<your-address>/api/add" \
 ]'
 ```
 
-#### DELETE `/api/delete`
+### DELETE `/api/delete`
 
-删除指定的代理地址，参数 `addr` 指定参数名称。
+Removes a specific proxy backend by address using the `addr` query parameter:
 
 ```
 curl -X "DELETE" "http://localhost:8080/api/delete?addr=192.168.1.1:1086"
 ```
 
-## 常见问题
+## FAQ
 
-### 如果我不想针对某个节点健康检查呢（强制使用）？
+### How do I disable health checks for a specific backend?
 
-那么可以配置节点 `check_url` 参数为空，然后默认 `initial_alive` 为 `true` 即可，例如：
+Leave the `check_url` parameter empty and set `initial_alive` to `true`:
 
 ```yaml
 backends:
@@ -161,11 +169,15 @@ backends:
       initial_alive: true
 ```
 
-### 在其他非 Linux 系统下可以使用 tproxy_listen 这个配置吗？
+### Can I use the tproxy_listen configuration on non-Linux systems?
 
-不好意思，透明代理只针对 Linux 平台，所以如果是非 Linux 平台，请留空对应的配置。
+No, transparent proxy support is Linux-only. Leave the tproxy configuration empty on other platforms.
 
-### 有没有类似功能的项目？
+### Are there similar projects?
 
 - https://github.com/ginuerzh/gost
 - https://github.com/nadoo/glider
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
