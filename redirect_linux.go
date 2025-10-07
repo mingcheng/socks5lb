@@ -1,13 +1,17 @@
 //go:build linux
 
-/**
+/*!*
+ * Copyright (c) 2025 Hangzhou Guanwaii Technology Co., Ltd.
+ *
+ * This source code is licensed under the MIT License,
+ * which is located in the LICENSE file in the source tree's root directory.
+ *
  * File: redirect_linux.go
- * Author: Ming Cheng<mingcheng@outlook.com>
+ * Author: mingcheng (mingcheng@apache.org)
+ * File Created: Wednesday, July 6th 2022, 11:47:00 am
  *
- * Created Date: Wednesday, July 6th 2022, 11:47:00 am
- * Last Modified: Thursday, July 7th 2022, 6:32:42 pm
- *
- * http://www.opensource.org/licenses/MIT
+ * Modified By: mingcheng (mingcheng@apache.org)
+ * Last Modified: 2025-10-07 11:24:03
  */
 
 package socks5lb
