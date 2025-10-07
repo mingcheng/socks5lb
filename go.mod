@@ -1,6 +1,6 @@
 module github.com/mingcheng/socks5lb
 
-go 1.20
+go 1.25
 
 require (
 	github.com/LiamHaworth/go-tproxy v0.0.0-20190726054950-ef7efd7f24ed
