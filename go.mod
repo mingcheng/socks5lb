@@ -10,7 +10,6 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.8.3
 	github.com/txthinking/socks5 v0.0.0-20220615051428-39268faee3e6
-	golang.org/x/net v0.21.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -38,8 +37,9 @@ require (
 	github.com/txthinking/x v0.0.0-20210326105829-476fab902fbe // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	golang.org/x/arch v0.3.0 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 )
