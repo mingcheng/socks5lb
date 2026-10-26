@@ -35,7 +35,7 @@ mise exec -- make build
 This produces `./socks5lb`. Docker Compose is also supported:
 
 ```bash
-docker-compose build
+docker compose build
 ```
 
 ## Configuration
@@ -142,25 +142,88 @@ and re-adding the backend rather than mutating a published backend.
 
 ### Docker Compose
 
-It's recommended to use `network_mode: 'host'` to avoid network connectivity issues caused by Docker's iptables rules:
+The [Compose configuration](docker-compose.yaml) uses bridge networking, an
+unprivileged user, a read-only root filesystem, no Linux capabilities, and
+production logging. Ordinary SOCKS5 forwarding does not need `privileged`
+mode or host networking. On macOS and Windows, this Linux container runs in
+Docker Desktop's VM; native release binaries are also available.
 
 ```yaml
-version: "3"
 services:
   socks5lb:
     image: ghcr.io/mingcheng/socks5lb:latest
-    restart: always
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
     environment:
       TZ: "Asia/Shanghai"
-      CHECK_TIME_INTERVAL: 3600
-    network_mode: "host"
-    privileged: true
+      CHECK_TIME_INTERVAL: 60
+      DEBUG: "false"
+    ports:
+      - "1080:1080"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    stop_grace_period: 10s
     volumes:
       - ./socks5lb.yml:/etc/socks5lb.yml:ro
 ```
+
+The image contains a statically linked binary, CA certificates for HTTPS
+checks, and Go's embedded time-zone database. It does not contain a shell or
+diagnostic utilities. The configuration must be readable by UID/GID `65532`;
+use a suitable ACL or group permission rather than making credentials public.
+Do not publish the management port without an appropriate access-control layer.
+
+Build metadata can be supplied with the `VERSION`, `BUILD_COMMIT`, and
+`BUILD_DATE` Docker build arguments; use a whitespace-free RFC 3339 date.
+Their defaults are `dev`, `unknown`, and `unknown`. `GOPROXY` retains the existing
+`https://goproxy.cn,direct` default and can be overridden at build time.
+Native releases retain their existing GoReleaser
+version metadata and Linux/macOS/Windows amd64/arm64 targets.
+
+### Linux systemd service
+
+The [service template](deploy/socks5lb.service) requires systemd 247 or newer.
+It uses a dynamic unprivileged identity and `LoadCredential` to read a
+root-only configuration file without exposing credentials to other users.
+After building or extracting a Linux release:
+
+```sh
+sudo install -m 755 socks5lb /usr/local/bin/socks5lb
+sudo install -m 600 socks5lb.yml /etc/socks5lb.yml
+sudo install -m 644 deploy/socks5lb.service /etc/systemd/system/socks5lb.service
+```
+
+Edit the configuration before starting: set the actual backends and bind the
+management API to a trusted address, for example `127.0.0.1:8080`, or disable it.
+Then run:
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now socks5lb
+sudo journalctl -u socks5lb
+```
+
+Tune connection limits and `LimitNOFILE` together. Each proxy tunnel needs two
+socket descriptors; Linux's Go `splice` path can additionally hold four pipe
+descriptors for bidirectional transfer. Leave headroom for health checks, the
+management API, and cached pipes. The example limit of 65536 is not a universal
+capacity guarantee. Socket and pipe memory also count toward system/container
+resource use even though they do not appear in Go heap profiles.
+
+For native macOS and Windows deployments, use the platform's service manager
+and resource-monitoring tools; the systemd template is Linux-only. Inspect
+RSS/working set, open descriptors/handles, and established connections rather
+than extrapolating capacity from Go heap size alone. On Linux, useful tools are
+`systemctl status`, `ss -tinm`, and the process's `/proc/<pid>/fd` directory; on
+macOS use Activity Monitor/`lsof`, and on Windows use Task Manager or
+`Get-Process` (`WorkingSet64`, `HandleCount`). Apply kernel/network tuning only
+after identifying a measured bottleneck.
 
 ### iptables Configuration
 
@@ -270,6 +333,13 @@ fallbacks. User-space copy buffers are borrowed only when neither fast-copy
 interface exists. Avoid wrappers that hide those interfaces or `CloseWrite`.
 Pool membership is sorted only when it changes; selection reuses temporary
 storage while reading the current atomic health state.
+
+CI runs tests, vet, and the race detector on Linux, macOS, and Windows. Tests use
+local listeners and deterministic `testing/synctest` time for scheduling,
+backoff, and deadline checks; they do not require public endpoints or privileged
+routing. The race detector needs a C compiler and `CGO_ENABLED=1`. On Windows
+without Make, run `go vet ./...`, `go test ./...`, then set
+`$env:CGO_ENABLED = "1"` in PowerShell before `go test -race ./...`.
 
 ## FAQ
 

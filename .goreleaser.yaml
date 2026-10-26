@@ -36,6 +36,7 @@ archives:
       - LICENSE
       - README.md
       - socks5lb.yml
+      - deploy/socks5lb.service
 
 checksum:
   name_template: checksums.txt

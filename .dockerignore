@@ -1,0 +1,13 @@
+.git
+.github
+.env
+.task
+.vscode
+build
+dist
+target
+socks5lb
+*.exe
+*.test
+*.prof
+coverage*.out

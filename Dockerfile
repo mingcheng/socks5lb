@@ -1,27 +1,23 @@
 FROM golang:1.26.8 AS builder
 LABEL maintainer="mingcheng<mingcheng@outook.com>"
 
-ENV PACKAGE github.com/mingcheng/socks5lb
-ENV GOPROXY https://goproxy.cn,direct
-ENV BUILD_DIR ${GOPATH}/src/${PACKAGE}
+WORKDIR /src
+ARG GOPROXY=https://goproxy.cn,direct
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
 
-# Build
-COPY . ${BUILD_DIR}
-WORKDIR ${BUILD_DIR}
-RUN make build && mv ./socks5lb /usr/bin/socks5lb
+ARG VERSION=dev
+ARG BUILD_COMMIT=unknown
+ARG BUILD_DATE=unknown
+RUN CGO_ENABLED=0 go build -trimpath -tags timetzdata \
+    -ldflags="-s -w -X github.com/mingcheng/socks5lb.Version=${VERSION} -X github.com/mingcheng/socks5lb.BuildCommit=${BUILD_COMMIT} -X github.com/mingcheng/socks5lb.BuildDate=${BUILD_DATE}" \
+    -o /out/socks5lb ./cmd/socks5lb
 
-# Stage2
-FROM debian:bullseye
-
-ENV TZ "Asia/Shanghai"
-RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list \
-	&& sed -i 's/security.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list \
-	&& echo "Asia/Shanghai" > /etc/timezone \
-	&& apt -y update \
-	&& apt -y upgrade \
-	&& apt -y install ca-certificates openssl tzdata curl dumb-init \
-	&& apt -y autoremove
-
-COPY --from=builder /usr/bin/socks5lb /bin/socks5lb
-
-ENTRYPOINT ["dumb-init", "/bin/socks5lb"]
+FROM scratch
+ENV TZ=Asia/Shanghai
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /out/socks5lb /bin/socks5lb
+COPY --from=builder /src/LICENSE /LICENSE
+USER 65532:65532
+ENTRYPOINT ["/bin/socks5lb"]

@@ -1,0 +1,25 @@
+[Unit]
+Description=SOCKS5 proxy load balancer
+Documentation=https://github.com/mingcheng/socks5lb
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+LoadCredential=config:/etc/socks5lb.yml
+ExecStart=/usr/local/bin/socks5lb -c %d/config
+Environment=DEBUG=false
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=10s
+LimitNOFILE=65536
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

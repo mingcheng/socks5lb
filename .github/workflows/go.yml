@@ -38,3 +38,32 @@ jobs:
 
     - name: Build
       run: make build
+
+  platform-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+
+    - name: Vet
+      run: go vet ./...
+
+    - name: Test
+      run: go test -count=1 ./...
+
+    - name: Race detector
+      env:
+        CGO_ENABLED: "1"
+      run: go test -race -count=1 ./...
+
+    - name: Build
+      run: go build ./cmd/socks5lb
