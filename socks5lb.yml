@@ -18,6 +18,12 @@ server:
     max_concurrent_dials: 0
     dial_attempts: 1
     dial_timeout: 10
+  health_check:
+    concurrency: 1
+    check_on_start: false
+    jitter_percent: 0
+    failure_threshold: 1
+    success_threshold: 1
   tproxy:
     addr: ""
 backends:

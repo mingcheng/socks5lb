@@ -14,6 +14,11 @@ func TestServerConfigValidation(t *testing.T) {
 		{"connection limit", ServerConfig{Connections: ConnectionConfig{MaxConnections: -1}}},
 		{"dial limit", ServerConfig{Connections: ConnectionConfig{MaxConcurrentDials: -1}}},
 		{"attempts", ServerConfig{Connections: ConnectionConfig{DialAttempts: -1}}},
+		{"concurrency", ServerConfig{HealthCheck: HealthCheckConfig{Concurrency: -1}}},
+		{"failure threshold", ServerConfig{HealthCheck: HealthCheckConfig{FailureThreshold: -1}}},
+		{"success threshold", ServerConfig{HealthCheck: HealthCheckConfig{SuccessThreshold: -1}}},
+		{"negative jitter", ServerConfig{HealthCheck: HealthCheckConfig{JitterPercent: -1}}},
+		{"excessive jitter", ServerConfig{HealthCheck: HealthCheckConfig{JitterPercent: 101}}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Error(t, tt.config.Validate())
@@ -29,6 +34,7 @@ func TestServerConfigValidation(t *testing.T) {
 	require.NoError(t, (ServerConfig{}).Validate())
 	require.NoError(t, (ServerConfig{
 		Connections: ConnectionConfig{MaxConnections: 10, MaxConcurrentDials: 2, DialAttempts: 3, DialTimeout: 1},
+		HealthCheck: HealthCheckConfig{Concurrency: 4, CheckOnStart: true, JitterPercent: 100, FailureThreshold: 2, SuccessThreshold: 2},
 	}).Validate())
 }
 

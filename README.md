@@ -81,11 +81,12 @@ healthy and do not follow redirects. `timeout` is in seconds and defaults to 10;
 it bounds the health request, including SOCKS5 negotiation. Without `check_url`,
 the backend retains its configured `initial_alive` policy.
 
-### Cross-platform connection options
+### Cross-platform connection and health-check options
 
 These settings work on Linux, macOS, and Windows. Existing configurations retain
-unlimited proxy connections and concurrent dials, and one dial attempt with a
-10-second budget. The following example explicitly enables additional protection:
+unlimited proxy connections and concurrent dials, one dial attempt with a
+10-second budget, and serial health checks starting at the first timer tick.
+The following example explicitly enables additional protection:
 
 ```yaml
 server:
@@ -96,6 +97,12 @@ server:
     max_concurrent_dials: 32
     dial_attempts: 2
     dial_timeout: 10
+  health_check:
+    concurrency: 4
+    check_on_start: true
+    jitter_percent: 10
+    failure_threshold: 2
+    success_threshold: 2
 ```
 
 | Setting | Default | Meaning |
@@ -104,6 +111,18 @@ server:
 | `connections.max_concurrent_dials` | `0` | Maximum concurrent normal SOCKS5 backend-dial operations; `0` is unlimited. Waiting consumes the dial budget and is canceled during shutdown. |
 | `connections.dial_attempts` | `1` | Maximum dial attempts against distinct healthy backends; `0` also means one. Retries only occur before any client bytes are forwarded. |
 | `connections.dial_timeout` | `10` | Total dial budget in seconds, including queueing, DNS, and all attempts; `0` uses 10 seconds. It does not limit an established tunnel's lifetime. |
+| `health_check.concurrency` | `1` | Maximum simultaneous server-managed probes; `0` also means one. Separate rounds never overlap. |
+| `health_check.check_on_start` | `false` | Schedule an immediate asynchronous check instead of waiting for the first tick. This does not delay accepting connections until checks finish. |
+| `health_check.jitter_percent` | `0` | Add a random delay of up to this percentage of `CHECK_TIME_INTERVAL` before each periodic round; range `0` through `100`. |
+| `health_check.failure_threshold` | `1` | Consecutive failed probes needed to mark a backend unhealthy; `0` also means one. |
+| `health_check.success_threshold` | `1` | Consecutive successful probes needed to mark a backend healthy; `0` also means one. |
+
+An opposite probe result resets the consecutive-result counter. Probe failures
+are logged even before the threshold is reached. A canceled check does not
+change health. Backends without `check_url` continue to follow `initial_alive`,
+without thresholds. Removing and re-adding a backend resets its check history.
+Direct library calls to `Backend.Check` and `Pool.Check` retain their immediate
+health-update semantics; the options above govern checks scheduled by `Server`.
 
 Retries do not replay SOCKS5 authentication, requests, or established traffic,
 and do not permanently mark a backend dead based on a single dial failure.

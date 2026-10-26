@@ -184,20 +184,9 @@ func (b *Pool) Check() {
 }
 
 func (b *Pool) check(ctx context.Context) {
-	for _, backend := range b.All() {
-		if ctx.Err() != nil {
-			return
-		}
-		err := backend.check(ctx)
-		if err != nil {
-			if ctx.Err() != nil {
-				return
-			}
-			log.Errorf("health check failed for backend %s: %v", backend.Addr, err)
-		} else {
-			log.Debugf("health check successful for backend %s", backend.Addr)
-		}
-	}
+	runHealthChecks(ctx, b.members(), 1, func(ctx context.Context, backend *Backend) error {
+		return backend.check(ctx)
+	})
 }
 
 // NewPool creates an independent backend pool.

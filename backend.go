@@ -68,8 +68,17 @@ func (b *Backend) Check() error {
 }
 
 func (b *Backend) check(ctx context.Context) error {
+	alive, err := b.probe(ctx)
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	b.SetAlive(alive)
+	return err
+}
+
+func (b *Backend) probe(ctx context.Context) (bool, error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return false, err
 	}
 	if url := b.CheckConfig.CheckURL; url != "" {
 		checkHTTP := b.httpHealthCheck
@@ -77,16 +86,9 @@ func (b *Backend) check(ctx context.Context) error {
 			checkHTTP = b.checkHTTP
 		}
 		err := checkHTTP(ctx, url)
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		b.SetAlive(err == nil)
-		return err
+		return err == nil, err
 	}
-
-	// Fall back to initial configuration if no check URL
-	b.SetAlive(b.CheckConfig.InitialAlive)
-	return nil
+	return b.CheckConfig.InitialAlive, nil
 }
 
 // httpHealthCheck performs HTTP-based health check through SOCKS5 proxy

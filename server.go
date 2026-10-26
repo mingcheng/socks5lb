@@ -151,16 +151,27 @@ func (s *Server) startHealthChecks(interval time.Duration) {
 	ctx := s.contextLocked()
 	s.healthDone = make(chan struct{})
 	done := s.healthDone
+	var options HealthCheckConfig
+	if s.Config != nil {
+		options = s.Config.HealthCheck
+	}
+	checker := newHealthChecker(options)
 	go func() {
 		defer close(done)
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
+		if options.CheckOnStart {
+			checker.run(ctx, s.Pool)
+		}
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				s.Pool.check(ctx)
+				if err := waitContext(ctx, healthCheckJitter(interval, options.JitterPercent)); err != nil {
+					return
+				}
+				checker.run(ctx, s.Pool)
 			}
 		}
 	}()
