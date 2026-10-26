@@ -6,12 +6,12 @@ Sometimes SOCKS5 proxies become unreachable due to network fluctuations or routi
 
 This tool solves that problem by acting as a front-end load balancer for SOCKS5 proxies, automatically routing traffic through verified, healthy proxy nodes.
 
-For Linux systems, it also provides transparent proxy capabilities with SOCKS5 protocol conversion, making it easy to integrate with ipset and iptables.
+The library also retains a deprecated Linux transparent proxy API with SOCKS5 protocol conversion. It is not started by the CLI or `Server.Start`.
 
 ## Key Features
 
 - **Load Balancing**: Round-robin distribution across SOCKS5 proxies with automatic health checks
-- **Transparent Proxy**: Linux [TPROXY](https://www.kernel.org/doc/Documentation/networking/tproxy.txt) support with SOCKS5 protocol conversion
+- **Legacy Transparent Proxy API**: Linux [TPROXY](https://www.kernel.org/doc/Documentation/networking/tproxy.txt) support with SOCKS5 protocol conversion; deprecated and opt-in for library callers
 - **Cross-Platform**: Written in Go for easy deployment across platforms (including routers)
 
 ## Changelog
@@ -23,7 +23,15 @@ For Linux systems, it also provides transparent proxy capabilities with SOCKS5 p
 
 ## Building
 
-The recommended way to build is using docker-compose:
+The Go toolchain is managed by [mise](https://mise.jdx.dev/). The version in
+`mise.toml` matches `go.mod` (Go 1.26.8); use the project toolchain for development:
+
+```bash
+mise install
+mise exec -- make build
+```
+
+This produces `./socks5lb`. Docker Compose is also supported:
 
 ```bash
 docker-compose build
@@ -31,7 +39,7 @@ docker-compose build
 
 ## Configuration
 
-Here's a basic configuration example with three SOCKS5 proxies exposed on local port 1080, and transparent proxy on port 8848 for Linux systems:
+Here's a basic configuration example with three SOCKS5 proxies exposed on local port 1080:
 
 ```yaml
 server:
@@ -39,8 +47,6 @@ server:
     addr: ":8080"
   socks5:
     addr: ":1080"
-  tproxy:
-    addr: ":8848"
 backends:
   - addr: 192.168.100.254:1086
     check_config:
@@ -59,9 +65,24 @@ backends:
       timeout: 3
 ```
 
+`server.socks5.addr` is required by the CLI. An empty or `null` configuration
+file, invalid backend addresses (empty or whitespace-only), and duplicate
+backend addresses are rejected during initialization.
+
+Backend `username` and `password` fields are preserved for authenticated health
+checks and the legacy transparent proxy API. The normal SOCKS5 listener forwards
+the client's SOCKS5 negotiation unchanged; clients must supply any credentials
+required by the selected upstream.
+
+`initial_alive` takes effect immediately for configured and dynamically added
+backends. With a `check_url`, periodic HEAD requests mark HTTP 2xx/3xx responses
+healthy and do not follow redirects. `timeout` is in seconds and defaults to 10;
+it bounds the health request, including SOCKS5 negotiation. Without `check_url`,
+the backend retains its configured `initial_alive` policy.
+
 ### Environment Variables
 
-- `SELECT_TIME_INTERVAL` - Automatic proxy switching interval in seconds (default: 300 seconds / 5 minutes)
+- `SELECT_TIME_INTERVAL` - Backend switching interval for the deprecated `ListenTProxy` API only (default: 300 seconds / 5 minutes). Normal SOCKS5 connections use round-robin selection per connection.
 - `CHECK_TIME_INTERVAL` - Health check polling interval in seconds (default: 60 seconds / 1 minute)
 - `DEBUG` - Enable debug mode (true/false)
 
@@ -91,7 +112,13 @@ services:
 
 ### iptables Configuration
 
-Example iptables rules to redirect traffic through port 8848 (note: the `redrock` ipset must be configured separately):
+The CLI does not start the deprecated transparent proxy listener, and setting
+`server.tproxy.addr` alone does not enable it. Library users must explicitly call
+`ListenTProxy` on Linux with the required network capabilities. IPv4 original
+destination lookup is supported.
+
+For an explicitly started listener on port 8848, example iptables rules follow
+(the `redrock` ipset must be configured separately):
 
 ```shell
 iptables -t nat -I PREROUTING -p tcp -m set --match-set redrock dst -j REDIRECT --to-ports 8848
@@ -102,13 +129,17 @@ iptables -t nat -I OUTPUT -p tcp -m set --match-set redrock dst -j REDIRECT --to
 
 Version 1.1.0 introduced a simple web management interface for dynamic proxy configuration:
 
+The management API has no built-in authentication. Bind it to a trusted
+interface or protect it with an authenticated reverse proxy.
+
 ### GET `/version`
 
 Returns current version, build time, and uptime information.
 
 ### GET `/api/all`
 
-Lists all configured proxy servers. Add `?healthy=true` parameter to show only healthy backends.
+Lists all configured proxy servers in address order. Add `?healthy=true` to show
+only healthy backends. Invalid boolean filter values return HTTP 400.
 
 ### PUT `/api/add`
 
@@ -131,7 +162,10 @@ Adds new proxy backends. The request body should be a JSON array of backend conf
 ]
 ```
 
-Returns the number of backends successfully added. Note: Existing backends must be deleted before re-adding.
+Returns the number of backends successfully added. Additions are atomic: if an
+address already exists or is duplicated within the request, HTTP 503 is returned
+and the pool is unchanged. Existing backends must be deleted before re-adding.
+Malformed JSON, missing addresses, and empty or `null` batches return HTTP 400.
 
 Example using curl:
 

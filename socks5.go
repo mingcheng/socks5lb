@@ -15,6 +15,8 @@
 package socks5lb
 
 import (
+	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -29,25 +31,27 @@ const (
 )
 
 // ListenSocks5 listens on a specific address and handles SOCKS5 connections
-func (s *Server) ListenSocks5(addr string) (err error) {
-	s.socks5Listener, err = net.Listen("tcp", addr)
+func (s *Server) ListenSocks5(addr string) error {
+	listener, err := s.listenSocks5(addr)
 	if err != nil {
-		log.Error(err)
-		return
+		return err
 	}
-	defer s.socks5Listener.Close()
+	return s.serveConnections(listener, s.handleSocks5Connection)
+}
 
-	for {
-		var socks5Conn net.Conn
-		socks5Conn, err = s.socks5Listener.Accept()
-		if err != nil {
-			log.Error(err)
-			return
-		}
-
-		// Handle each connection in a separate goroutine
-		go s.handleSocks5Connection(socks5Conn)
+func (s *Server) listenSocks5(addr string) (net.Listener, error) {
+	if s.Pool == nil {
+		return nil, errors.New("backend pool is required")
 	}
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("listen SOCKS5: %w", err)
+	}
+	if err := s.registerListener(listener, &s.socks5Listener); err != nil {
+		_ = listener.Close()
+		return nil, err
+	}
+	return listener, nil
 }
 
 // handleSocks5Connection processes a single SOCKS5 client connection
@@ -77,22 +81,16 @@ func (s *Server) handleSocks5Connection(socks5Conn net.Conn) {
 		KeepAlive: DefaultKeepAlivePeriod,
 	}
 
-	backendConn, err := dialer.Dial("tcp", string(backend.Addr))
+	backendConn, err := dialer.DialContext(s.connectionContext(), "tcp", backend.Addr)
 	if err != nil {
 		log.Errorf("failed to dial backend %s: %v", backend.Addr, err)
 		return
 	}
-	defer backendConn.Close()
-
-	// Enable TCP keepalive on backend connection
-	if tcpConn, ok := backendConn.(*net.TCPConn); ok {
-		if err := tcpConn.SetKeepAlive(true); err != nil {
-			log.Warnf("failed to set backend keepalive: %v", err)
-		}
-		if err := tcpConn.SetKeepAlivePeriod(DefaultKeepAlivePeriod); err != nil {
-			log.Warnf("failed to set backend keepalive period: %v", err)
-		}
+	if !s.trackConnection(backendConn) {
+		_ = backendConn.Close()
+		return
 	}
+	defer s.releaseConnection(backendConn)
 
 	// Transport data bidirectionally between client and backend
 	if err := s.Transport(socks5Conn, backendConn); err != nil {

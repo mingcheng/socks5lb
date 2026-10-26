@@ -21,7 +21,7 @@ type ServerConfig struct {
 		Addr string `yaml:"addr"`
 	} `yaml:"http"`
 
-	// TProxy transparent proxy configuration (not yet implemented)
+	// Legacy Linux transparent proxy; Server.Start does not enable this listener.
 	TProxy struct {
 		Addr string `yaml:"addr"`
 	} `yaml:"tproxy"`

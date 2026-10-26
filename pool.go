@@ -15,7 +15,10 @@
 package socks5lb
 
 import (
+	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -23,21 +26,41 @@ import (
 )
 
 type Pool struct {
-	current  uint64
+	current  atomic.Uint64
 	backends map[string]*Backend
 	lock     sync.RWMutex // Use RWMutex for better read concurrency
 }
 
 // Add add a backend to the pool
-func (b *Pool) Add(backend *Backend) (err error) {
+func (b *Pool) Add(backend *Backend) error {
+	return b.addBackends([]*Backend{backend})
+}
+
+func (b *Pool) addBackends(backends []*Backend) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
-	if b.backends[backend.Addr] != nil {
-		return fmt.Errorf("%v is already exists, remove it first", backend.Addr)
+
+	seen := make(map[string]struct{}, len(backends))
+	for _, backend := range backends {
+		if backend == nil || strings.TrimSpace(backend.Addr) == "" {
+			return fmt.Errorf("backend address is empty")
+		}
+		if b.backends[backend.Addr] != nil {
+			return fmt.Errorf("backend %s already exists, remove it first", backend.Addr)
+		}
+		if _, ok := seen[backend.Addr]; ok {
+			return fmt.Errorf("backend %s is duplicated in the batch", backend.Addr)
+		}
+		seen[backend.Addr] = struct{}{}
 	}
 
-	b.backends[backend.Addr] = backend
-	return
+	if b.backends == nil {
+		b.backends = make(map[string]*Backend, len(backends))
+	}
+	for _, backend := range backends {
+		b.backends[backend.Addr] = backend
+	}
+	return nil
 }
 
 // Remove remove a backend from the pool
@@ -46,7 +69,7 @@ func (b *Pool) Remove(addr string) (err error) {
 	defer b.lock.Unlock()
 
 	if b.backends[addr] == nil {
-		return fmt.Errorf("server %s is not exists", addr)
+		return fmt.Errorf("backend %s does not exist", addr)
 	}
 	delete(b.backends, addr)
 	return
@@ -55,29 +78,28 @@ func (b *Pool) Remove(addr string) (err error) {
 // All returns all backends in the pool
 func (b *Pool) All() (backends []*Backend) {
 	b.lock.RLock()
-	defer b.lock.RUnlock()
 
 	// Preallocate slice with exact capacity to avoid resizing
 	backends = make([]*Backend, 0, len(b.backends))
 	for _, v := range b.backends {
 		backends = append(backends, v)
 	}
+	b.lock.RUnlock()
+	sort.Slice(backends, func(i, j int) bool {
+		return backends[i].Addr < backends[j].Addr
+	})
 	return
 }
 
 // AllHealthy returns all healthy backends from the pool
 func (b *Pool) AllHealthy() (backends []*Backend) {
-	b.lock.RLock()
-	defer b.lock.RUnlock()
-
-	// Preallocate slice with estimated capacity
-	backends = make([]*Backend, 0, len(b.backends))
-	for _, v := range b.backends {
+	all := b.All()
+	backends = all[:0]
+	for _, v := range all {
 		if v.Alive() {
 			backends = append(backends, v)
 		}
 	}
-
 	return
 }
 
@@ -92,7 +114,7 @@ func (b *Pool) NextIndex() int {
 		return 0
 	}
 
-	return int(atomic.AddUint64(&b.current, uint64(1)) % uint64(backendCount))
+	return int(b.current.Add(1) % uint64(backendCount))
 }
 
 // Next returns the next available healthy backend using round-robin algorithm
@@ -103,48 +125,29 @@ func (b *Pool) Next() *Backend {
 	log.Tracef("found %d available backends", len(backends))
 
 	// No backends available
-	if len(backends) <= 0 {
+	if len(backends) == 0 {
 		return nil
 	}
 
-	// Get starting index for round-robin
-	next := b.NextIndex()
-
-	// Loop through all backends starting from next index
-	l := len(backends) + next
-
-	for i := next; i < l; i++ {
-		// Get index using modulo to wrap around
-		idx := i % len(backends)
-
-		// Return the first alive backend found
-		if backends[idx].Alive() {
-			// Update current index only if we moved from original position
-			if i != next {
-				atomic.StoreUint64(&b.current, uint64(idx))
-			}
-
-			return backends[idx]
-		}
-	}
-
-	return nil
+	next := b.current.Add(1) - 1
+	return backends[next%uint64(len(backends))]
 }
 
 // Check performs health checks on all backends in the pool
 func (b *Pool) Check() {
-	b.lock.RLock()
-	// Create a snapshot of backends to avoid holding lock during checks
-	backends := make([]*Backend, 0, len(b.backends))
-	for _, backend := range b.backends {
-		backends = append(backends, backend)
-	}
-	b.lock.RUnlock()
+	b.check(context.Background())
+}
 
-	// Perform health checks without holding the lock
-	for _, backend := range backends {
-		err := backend.Check()
+func (b *Pool) check(ctx context.Context) {
+	for _, backend := range b.All() {
+		if ctx.Err() != nil {
+			return
+		}
+		err := backend.check(ctx)
 		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			log.Errorf("health check failed for backend %s: %v", backend.Addr, err)
 		} else {
 			log.Debugf("health check successful for backend %s", backend.Addr)
@@ -152,26 +155,20 @@ func (b *Pool) Check() {
 	}
 }
 
-var (
-	instance *Pool
-	once     sync.Once
-)
-
-// NewPool instance for a new Pools instance
+// NewPool creates an independent backend pool.
 func NewPool(backends ...[]Backend) *Pool {
-	once.Do(func() {
-		instance = &Pool{
-			backends: make(map[string]*Backend),
-		}
-	})
+	pool := &Pool{
+		backends: make(map[string]*Backend),
+	}
 
 	for _, backend := range backends {
 		for _, b := range backend {
-			if err := instance.Add(&b); err != nil {
+			b.SetAlive(b.CheckConfig.InitialAlive)
+			if err := pool.Add(&b); err != nil {
 				log.Error(err)
 			}
 		}
 	}
 
-	return instance
+	return pool
 }

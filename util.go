@@ -15,6 +15,7 @@
 package socks5lb
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -26,7 +27,7 @@ import (
 // GetEnv retrieves an environment variable value or returns a default if not set
 // Trims whitespace from the result for cleaner configuration handling
 func GetEnv(name, def string) string {
-	result := os.Getenv(name)
+	result := strings.TrimSpace(os.Getenv(name))
 	if result == "" {
 		result = def
 	}
@@ -39,10 +40,27 @@ func GetEnv(name, def string) string {
 func SecFromEnv(name string, defVal uint64) time.Duration {
 	intervalStr := GetEnv(name, strconv.FormatUint(defVal, 10))
 	interval, err := strconv.ParseUint(intervalStr, 10, 64)
-	if err != nil {
-		log.Debugf("invalid interval value '%s': %v, using default %ds", intervalStr, err, defVal)
-		interval = defVal
+	if err == nil {
+		var duration time.Duration
+		duration, err = secondsDuration(interval)
+		if err == nil {
+			return duration
+		}
 	}
 
-	return time.Duration(interval) * time.Second
+	log.Warnf("invalid %s interval %q: %v, using default %ds", name, intervalStr, err, defVal)
+	duration, err := secondsDuration(defVal)
+	if err != nil {
+		log.Warnf("invalid default interval %ds: %v, using 1s", defVal, err)
+		return time.Second
+	}
+	return duration
+}
+
+func secondsDuration(seconds uint64) (time.Duration, error) {
+	const maxSeconds = uint64((1<<63 - 1) / int64(time.Second))
+	if seconds == 0 || seconds > maxSeconds {
+		return 0, fmt.Errorf("interval must be between 1 and %d seconds", maxSeconds)
+	}
+	return time.Duration(seconds) * time.Second, nil
 }

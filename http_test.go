@@ -15,15 +15,20 @@
 package socks5lb
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func EngineInstance(t *testing.T) *gin.Engine {
+	t.Helper()
 	server, err := NewServer(NewPool([]Backend{
 		{
 			Addr: "127.0.0.1:8888",
@@ -33,10 +38,10 @@ func EngineInstance(t *testing.T) *gin.Engine {
 		},
 	}), ServerConfig{})
 
-	assert.NoError(t, err)
-	assert.NotNil(t, server)
+	require.NoError(t, err)
+	require.NotNil(t, server)
 
-	_ = server.setupRouter()
+	require.NoError(t, server.setupRouter())
 	return server.Engine()
 }
 
@@ -81,7 +86,7 @@ func TestServer_HTTPPutAndDelete(t *testing.T) {
 
 	engine.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, w.Body.String(), "2")
+	assert.Equal(t, "2 backend(s) added", w.Body.String())
 
 	w = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodDelete, "/api/delete?addr=192.168.100.254:1086", nil)
@@ -92,4 +97,98 @@ func TestServer_HTTPPutAndDelete(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodDelete, "/api/delete?addr=<not>", nil)
 	engine.ServeHTTP(w, req)
 	assert.NotEqual(t, http.StatusOK, w.Code)
+}
+
+func TestHTTPServerIsolation(t *testing.T) {
+	first := EngineInstance(t)
+	second := EngineInstance(t)
+	require.NotSame(t, first, second)
+
+	w := httptest.NewRecorder()
+	first.ServeHTTP(w, httptest.NewRequest(http.MethodDelete, "/api/delete?addr=127.0.0.1:8888", nil))
+	require.Equal(t, http.StatusOK, w.Code)
+
+	w = httptest.NewRecorder()
+	second.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/all", nil))
+	var backends []Backend
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &backends))
+	require.Len(t, backends, 1)
+}
+
+func TestHTTPGinModeMatchesDebug(t *testing.T) {
+	mode := gin.ReleaseMode
+	if DebugMode {
+		mode = gin.DebugMode
+	}
+	require.Equal(t, mode, gin.Mode())
+}
+
+func TestHTTPAddInitialAlive(t *testing.T) {
+	engine := EngineInstance(t)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodPut, "/api/add",
+		strings.NewReader(`[{"addr":"127.0.0.1:1080","check_config":{"initial_alive":true}}]`)))
+	require.Equal(t, http.StatusOK, w.Code)
+
+	w = httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/all?healthy=true", nil))
+	var backends []Backend
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &backends))
+	require.Len(t, backends, 1)
+	require.Equal(t, "127.0.0.1:1080", backends[0].Addr)
+}
+
+func TestHTTPAddBatchIsAtomic(t *testing.T) {
+	for _, duplicate := range []string{"127.0.0.1:8888", "127.0.0.1:1080"} {
+		t.Run(duplicate, func(t *testing.T) {
+			engine := EngineInstance(t)
+			w := httptest.NewRecorder()
+			engine.ServeHTTP(w, httptest.NewRequest(http.MethodPut, "/api/add",
+				strings.NewReader(`[{"addr":"127.0.0.1:1080"},{"addr":"`+duplicate+`"}]`)))
+			require.Equal(t, http.StatusServiceUnavailable, w.Code)
+
+			w = httptest.NewRecorder()
+			engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/all", nil))
+			var backends []Backend
+			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &backends))
+			require.Len(t, backends, 1, "a rejected batch must not partially modify the pool")
+			require.Equal(t, "127.0.0.1:8888", backends[0].Addr)
+		})
+	}
+}
+
+func TestHTTPInvalidInput(t *testing.T) {
+	tests := []struct {
+		name, method, path, body string
+	}{
+		{"invalid JSON", http.MethodPut, "/api/add", "["},
+		{"missing address", http.MethodPut, "/api/add", `[{}]`},
+		{"blank address", http.MethodPut, "/api/add", `[{"addr":" "}]`},
+		{"empty batch", http.MethodPut, "/api/add", `[]`},
+		{"null batch", http.MethodPut, "/api/add", `null`},
+		{"missing delete address", http.MethodDelete, "/api/delete", ""},
+		{"invalid health filter", http.MethodGet, "/api/all?healthy=invalid", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			engine := EngineInstance(t)
+			w := httptest.NewRecorder()
+			engine.ServeHTTP(w, httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body)))
+			require.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
+		})
+	}
+}
+
+func TestHTTPConcurrentBackendUpdates(t *testing.T) {
+	engine := EngineInstance(t)
+	var wg sync.WaitGroup
+	for range 16 {
+		wg.Go(func() {
+			w := httptest.NewRecorder()
+			engine.ServeHTTP(w, httptest.NewRequest(http.MethodPut, "/api/add",
+				strings.NewReader(`[{"addr":"127.0.0.1:1080"}]`)))
+			assert.Contains(t, []int{http.StatusOK, http.StatusServiceUnavailable}, w.Code)
+		})
+	}
+	wg.Wait()
 }

@@ -17,6 +17,8 @@ package socks5lb
 import (
 	"strconv"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const AppName = "socks5lb"
@@ -26,14 +28,16 @@ var (
 	BuildCommit = "n/a"
 	BuildDate   = "n/a"
 
-	DebugMode = false
-	StartTime time.Time
+	DebugMode = debugModeFromEnv()
+	StartTime = time.Now()
 )
 
-func init() {
-	mode := GetEnv("DEBUG", "")
-	DebugMode, _ = strconv.ParseBool(mode)
-
-	// markup start time
-	StartTime = time.Now()
+func debugModeFromEnv() bool {
+	value := GetEnv("DEBUG", "false")
+	mode, err := strconv.ParseBool(value)
+	if err != nil {
+		log.Warnf("invalid DEBUG value %q: %v, disabling debug mode", value, err)
+		return false
+	}
+	return mode
 }
