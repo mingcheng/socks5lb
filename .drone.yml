@@ -14,13 +14,14 @@ name: build_and_run_on_docker
 
 steps:
   - name: build
-    image: golang:1.18
+    image: golang:1.26.8
     environment:
       GOPROXY: https://goproxy.cn
     volumes:
       - name: docker-sock
         path: /var/run/docker.sock
     commands:
+      - make check
       - make build
       - ./socks5lb -h
 

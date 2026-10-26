@@ -12,9 +12,10 @@ test-env:
     - docker info
 
 compile:
-  image: golang:1.18
+  image: golang:1.26.8
   stage: build
   script:
+    - make check
     - make build
     - ./socks5lb -h
   before_script:
