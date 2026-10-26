@@ -5,9 +5,12 @@ name: Go
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "develop", "release/**" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "develop", "release/**" ]
+
+permissions:
+  contents: read
 
 jobs:
 
@@ -15,11 +18,20 @@ jobs:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
 
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
         go-version-file: go.mod
+
+    - name: Check release configuration
+      uses: goreleaser/goreleaser-action@v7
+      with:
+        distribution: goreleaser
+        version: v2.19.0
+        args: check
 
     - name: Check formatting, vet, tests and races
       run: make check
