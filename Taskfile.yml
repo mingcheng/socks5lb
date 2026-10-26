@@ -1,21 +1,21 @@
 version: '3'
 
 vars:
-  BINARY_NAME: socks.5lb{{exeExt}}
+  BINARY_NAME: socks5lb{{exeExt}}
   PACKAGE_NAME: github.com/mingcheng/socks5lb
 
 tasks:
   default:
-    deps:
-      - test
-      - build
+    cmds:
+      - task: check
+      - task: build
 
   build:
-    deps:
-      - clean
     sources:
       - ./cmd/socks5lb/*.go
       - ./*.go
+      - go.mod
+      - go.sum
     generates:
       - '{{.BINARY_NAME}}'
     cmds:
@@ -28,13 +28,39 @@ tasks:
     vars:
       GIT_COMMIT:
         sh: git rev-parse --short HEAD
-  #    silent: true
-
   test:
-    deps:
-      - clean
     cmds:
-      - go test -v ./...
+      - go test ./...
+
+  race:
+    env:
+      CGO_ENABLED: '1'
+    cmds:
+      - go test -race ./...
+
+  vet:
+    cmds:
+      - go vet ./...
+
+  fmt:
+    cmds:
+      - gofmt -w .
+
+  fmt-check:
+    cmds:
+      - |
+        files="$(gofmt -l .)" || exit $?
+        if [ -n "$files" ]; then
+          printf 'Run gofmt on:\n%s\n' "$files"
+          exit 1
+        fi
+
+  check:
+    cmds:
+      - task: fmt-check
+      - task: vet
+      - task: test
+      - task: race
 
   clean:
     aliases:
