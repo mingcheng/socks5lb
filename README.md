@@ -81,6 +81,38 @@ healthy and do not follow redirects. `timeout` is in seconds and defaults to 10;
 it bounds the health request, including SOCKS5 negotiation. Without `check_url`,
 the backend retains its configured `initial_alive` policy.
 
+### Cross-platform connection options
+
+These settings work on Linux, macOS, and Windows. Existing configurations retain
+unlimited proxy connections and concurrent dials, and one dial attempt with a
+10-second budget. The following example explicitly enables additional protection:
+
+```yaml
+server:
+  socks5:
+    addr: ":1080"
+  connections:
+    max_connections: 1000
+    max_concurrent_dials: 32
+    dial_attempts: 2
+    dial_timeout: 10
+```
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `connections.max_connections` | `0` | Maximum active proxy tunnels per server; `0` is unlimited. Excess accepted connections are closed before dialing an upstream. The HTTP management listener is not counted. |
+| `connections.max_concurrent_dials` | `0` | Maximum concurrent normal SOCKS5 backend-dial operations; `0` is unlimited. Waiting consumes the dial budget and is canceled during shutdown. |
+| `connections.dial_attempts` | `1` | Maximum dial attempts against distinct healthy backends; `0` also means one. Retries only occur before any client bytes are forwarded. |
+| `connections.dial_timeout` | `10` | Total dial budget in seconds, including queueing, DNS, and all attempts; `0` uses 10 seconds. It does not limit an established tunnel's lifetime. |
+
+Retries do not replay SOCKS5 authentication, requests, or established traffic,
+and do not permanently mark a backend dead based on a single dial failure.
+The deprecated transparent listener does not use the normal SOCKS5 dial retry
+or dial-limit settings. Its routing behavior is otherwise unchanged.
+Configuration must not be modified concurrently with a running server; set
+server options before `NewServer`. Replace backend configuration by deleting
+and re-adding the backend rather than mutating a published backend.
+
 ### Environment Variables
 
 - `SELECT_TIME_INTERVAL` - Backend switching interval for the deprecated `ListenTProxy` API only (default: 300 seconds / 5 minutes). Normal SOCKS5 connections use round-robin selection per connection.
@@ -197,11 +229,12 @@ Use the pinned Go toolchain, `gofmt`, `go vet`, and the existing test/race targe
 
 ```sh
 mise exec -- make check
-mise exec -- go test -run '^$' -bench 'Benchmark(PoolNext|Transport)' -benchmem -count=5 .
+mise exec -- go test -run '^$' -bench 'Benchmark(PoolNext|BackendDial|Transport)' -benchmem -count=5 .
 ```
 
-The benchmarks cover serial/parallel selection at different backend counts and
-round-trip TCP forwarding with different payload sizes. Reported forwarding
+The benchmarks cover serial/parallel selection at different backend counts,
+backend TCP connection establishment, and round-trip TCP forwarding with
+different payload sizes. Reported forwarding
 bytes count both directions. Compare results on the same machine with matching
 CPU limits, Go versions, payloads, and concurrency; these loopback benchmarks
 are not predictions of WAN throughput or production connection capacity.

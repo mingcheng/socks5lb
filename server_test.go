@@ -356,6 +356,12 @@ func startTestServer(t *testing.T, pool *Pool) (*Server, <-chan error, string, s
 	config.HTTP.Addr = "127.0.0.1:0"
 	server, err := NewServer(pool, config)
 	require.NoError(t, err)
+	done, socksAddr, httpAddr := startConfiguredTestServer(t, server)
+	return server, done, socksAddr, httpAddr
+}
+
+func startConfiguredTestServer(t *testing.T, server *Server) (<-chan error, string, string) {
+	t.Helper()
 	done := make(chan error, 1)
 	go func() {
 		defer close(done)
@@ -368,12 +374,17 @@ func startTestServer(t *testing.T, pool *Pool) (*Server, <-chan error, string, s
 	require.Eventually(t, func() bool {
 		server.mu.Lock()
 		defer server.mu.Unlock()
-		return server.socks5Listener != nil && server.httpListener != nil && server.healthDone != nil
+		return server.socks5Listener != nil && server.healthDone != nil &&
+			(server.Config.HTTP.Addr == "" || server.httpListener != nil)
 	}, networkTestTimeout, time.Millisecond)
 	server.mu.Lock()
-	socksAddr, httpAddr := server.socks5Listener.Addr().String(), server.httpListener.Addr().String()
+	socksAddr := server.socks5Listener.Addr().String()
+	var httpAddr string
+	if server.httpListener != nil {
+		httpAddr = server.httpListener.Addr().String()
+	}
 	server.mu.Unlock()
-	return server, done, socksAddr, httpAddr
+	return done, socksAddr, httpAddr
 }
 
 func TestServerStandaloneListenersStop(t *testing.T) {

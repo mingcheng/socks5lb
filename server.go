@@ -59,21 +59,27 @@ type Server struct {
 	Pool   *Pool
 	Config *ServerConfig
 
-	mu             sync.Mutex
-	started        bool
-	stopped        bool
-	ctx            context.Context
-	cancel         context.CancelFunc
-	healthDone     chan struct{}
-	stopDone       chan struct{}
-	stopErr        error
-	engine         *gin.Engine
-	httpServer     *http.Server
-	httpListener   net.Listener
-	socks5Listener net.Listener
-	tproxyListener net.Listener
-	connections    map[net.Conn]struct{}
-	connectionWG   sync.WaitGroup
+	mu              sync.Mutex
+	started         bool
+	stopped         bool
+	ctx             context.Context
+	cancel          context.CancelFunc
+	healthDone      chan struct{}
+	stopDone        chan struct{}
+	stopErr         error
+	engine          *gin.Engine
+	httpServer      *http.Server
+	httpListener    net.Listener
+	socks5Listener  net.Listener
+	tproxyListener  net.Listener
+	connections     map[net.Conn]struct{}
+	connectionWG    sync.WaitGroup
+	configured      bool
+	connectionSlots chan struct{}
+	dialSlots       chan struct{}
+	dialTimeout     time.Duration
+	dialAttempts    int
+	dialContext     func(context.Context, string, string) (net.Conn, error)
 }
 
 // AddBackend is retained for compatibility.
@@ -213,22 +219,69 @@ func (s *Server) releaseConnection(conn net.Conn) {
 
 func (s *Server) serveConnections(listener net.Listener, handle func(net.Conn)) error {
 	defer listener.Close()
+	ctx := s.connectionContext()
+	var retryDelay time.Duration
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {
 				return nil
 			}
+			var timeout interface{ Timeout() bool }
+			if isResourceAcceptError(err) || (errors.As(err, &timeout) && timeout.Timeout()) {
+				if retryDelay == 0 {
+					retryDelay = 5 * time.Millisecond
+				} else {
+					retryDelay = min(2*retryDelay, time.Second)
+				}
+				log.Warnf("accept failed, retrying in %s: %v", retryDelay, err)
+				if err := waitContext(ctx, retryDelay); err != nil {
+					return nil
+				}
+				continue
+			}
 			return fmt.Errorf("accept connection: %w", err)
 		}
+		retryDelay = 0
+		if s.connectionSlots != nil {
+			select {
+			case s.connectionSlots <- struct{}{}:
+			default:
+				log.Warn("proxy connection limit reached, closing connection")
+				_ = conn.Close()
+				continue
+			}
+		}
 		if !s.trackConnection(conn) {
+			s.releaseConnectionSlot()
 			_ = conn.Close()
 			return nil
 		}
 		go func() {
 			defer s.releaseConnection(conn)
+			defer s.releaseConnectionSlot()
 			handle(conn)
 		}()
+	}
+}
+
+func (s *Server) releaseConnectionSlot() {
+	if s.connectionSlots != nil {
+		<-s.connectionSlots
+	}
+}
+
+func waitContext(ctx context.Context, delay time.Duration) error {
+	if delay <= 0 {
+		return ctx.Err()
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
 }
 
@@ -350,8 +403,12 @@ func NewServer(pool *Pool, config ServerConfig) (*Server, error) {
 	if pool == nil {
 		return nil, errors.New("backend pool is required")
 	}
-	return &Server{
+	server := &Server{
 		Pool:   pool,
 		Config: &config,
-	}, nil
+	}
+	if err := server.configureConnections(); err != nil {
+		return nil, err
+	}
+	return server, nil
 }

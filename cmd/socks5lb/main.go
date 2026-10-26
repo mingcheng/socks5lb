@@ -53,6 +53,9 @@ func NewConfig(path string) (*socks5lb.Configure, error) {
 	if strings.TrimSpace(config.ServerConfig.Sock5.Addr) == "" {
 		return nil, fmt.Errorf("configuration %s: server.socks5.addr is required", path)
 	}
+	if err := config.ServerConfig.Validate(); err != nil {
+		return nil, fmt.Errorf("configuration %s: %w", path, err)
+	}
 	return config, nil
 }
 

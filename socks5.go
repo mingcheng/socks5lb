@@ -15,6 +15,7 @@
 package socks5lb
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -43,6 +44,9 @@ func (s *Server) listenSocks5(addr string) (net.Listener, error) {
 	if s.Pool == nil {
 		return nil, errors.New("backend pool is required")
 	}
+	if err := s.configureConnections(); err != nil {
+		return nil, err
+	}
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("listen SOCKS5: %w", err)
@@ -68,22 +72,9 @@ func (s *Server) handleSocks5Connection(socks5Conn net.Conn) {
 		}
 	}
 
-	// Select a healthy backend from the pool
-	backend := s.Pool.Next()
-	if backend == nil {
-		log.Error("no healthy backend available, closing connection")
-		return
-	}
-
-	// Dial the backend with timeout
-	dialer := net.Dialer{
-		Timeout:   DefaultDialTimeout,
-		KeepAlive: DefaultKeepAlivePeriod,
-	}
-
-	backendConn, err := dialer.DialContext(s.connectionContext(), "tcp", backend.Addr)
+	backendConn, err := s.dialBackend(s.connectionContext())
 	if err != nil {
-		log.Errorf("failed to dial backend %s: %v", backend.Addr, err)
+		log.Errorf("failed to connect to a backend: %v", err)
 		return
 	}
 	if !s.trackConnection(backendConn) {
@@ -96,4 +87,88 @@ func (s *Server) handleSocks5Connection(socks5Conn net.Conn) {
 	if err := s.Transport(socks5Conn, backendConn); err != nil {
 		log.Debugf("transport error: %v", err)
 	}
+}
+
+func (s *Server) configureConnections() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.stopped {
+		return net.ErrClosed
+	}
+	if s.configured {
+		return nil
+	}
+	var config ServerConfig
+	if s.Config != nil {
+		config = *s.Config
+	}
+	if err := config.Validate(); err != nil {
+		return err
+	}
+	options := config.Connections
+	s.dialTimeout = DefaultDialTimeout
+	if options.DialTimeout != 0 {
+		duration, err := secondsDuration(uint64(options.DialTimeout))
+		if err != nil {
+			return fmt.Errorf("dial timeout: %w", err)
+		}
+		s.dialTimeout = duration
+	}
+	s.dialAttempts = max(1, options.DialAttempts)
+	dialer := &net.Dialer{KeepAlive: DefaultKeepAlivePeriod}
+	s.dialContext = dialer.DialContext
+	if options.MaxConnections > 0 {
+		s.connectionSlots = make(chan struct{}, options.MaxConnections)
+	}
+	if options.MaxConcurrentDials > 0 {
+		s.dialSlots = make(chan struct{}, options.MaxConcurrentDials)
+	}
+	s.configured = true
+	return nil
+}
+
+func (s *Server) dialBackend(parent context.Context) (net.Conn, error) {
+	ctx, cancel := context.WithTimeout(parent, s.dialTimeout)
+	defer cancel()
+	if s.dialSlots != nil {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("wait for backend dial slot: %w", ctx.Err())
+		case s.dialSlots <- struct{}{}:
+		}
+		defer func() { <-s.dialSlots }()
+	}
+
+	var attempted map[string]struct{}
+	if s.dialAttempts > 1 {
+		attempted = make(map[string]struct{})
+	}
+	var failures []error
+	for attempt := range s.dialAttempts {
+		if err := ctx.Err(); err != nil {
+			return nil, errors.Join(append(failures, err)...)
+		}
+		backend := s.Pool.next(attempted)
+		if backend == nil {
+			if len(failures) == 0 {
+				return nil, errors.New("no healthy backend available")
+			}
+			break
+		}
+		if attempted != nil {
+			attempted[backend.Addr] = struct{}{}
+		}
+		conn, err := s.dialContext(ctx, "tcp", backend.Addr)
+		if err == nil {
+			return conn, nil
+		}
+		if conn != nil {
+			_ = conn.Close()
+		}
+		failures = append(failures, fmt.Errorf("dial backend %s: %w", backend.Addr, err))
+		if attempt+1 < s.dialAttempts {
+			log.Warnf("backend dial failed (attempt %d/%d): %v", attempt+1, s.dialAttempts, failures[len(failures)-1])
+		}
+	}
+	return nil, errors.Join(failures...)
 }

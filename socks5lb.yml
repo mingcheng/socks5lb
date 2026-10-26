@@ -13,6 +13,11 @@ server:
     addr: ":8080"
   socks5:
     addr: ":1080"
+  connections:
+    max_connections: 0
+    max_concurrent_dials: 0
+    dial_attempts: 1
+    dial_timeout: 10
   tproxy:
     addr: ""
 backends:

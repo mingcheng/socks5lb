@@ -2,6 +2,8 @@ package socks5lb
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -48,6 +50,46 @@ func BenchmarkPoolNextParallel(b *testing.B) {
 			}
 		}
 	})
+}
+
+func BenchmarkBackendDial(b *testing.B) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(b, err)
+	done := make(chan error, 1)
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				if errors.Is(err, net.ErrClosed) {
+					err = nil
+				}
+				done <- err
+				return
+			}
+			if err := conn.Close(); err != nil {
+				done <- err
+				return
+			}
+		}
+	}()
+	b.Cleanup(func() {
+		require.NoError(b, listener.Close())
+		require.NoError(b, receiveError(b, done))
+	})
+	server, err := NewServer(NewPool([]Backend{{
+		Addr: listener.Addr().String(), CheckConfig: BackendCheckConfig{InitialAlive: true},
+	}}), ServerConfig{})
+	require.NoError(b, err)
+	b.ReportAllocs()
+	for b.Loop() {
+		conn, err := server.dialBackend(context.Background())
+		if err != nil {
+			b.Fatal(err)
+		}
+		if err := conn.Close(); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
 
 func BenchmarkTransport(b *testing.B) {
