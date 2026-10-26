@@ -16,6 +16,7 @@ The library also retains a deprecated Linux transparent proxy API with SOCKS5 pr
 
 ## Changelog
 
+- `2026-10-26` Version 1.4.0: Optimized cross-platform relay buffering and backend selection; added opt-in connection limits, bounded dial retries, concurrent health checks, startup checks, jitter, and health thresholds while preserving existing configuration defaults. Expanded regression tests, benchmarks, and platform CI; added a minimal non-root container and a systemd service template.
 - `2026-10-26` Version 1.3.0: Added automated GitHub Releases with GoReleaser, providing Linux, macOS, and Windows binaries for amd64 and arm64, bundled example configuration, and SHA-256 checksums.
 - `2025-10-07` Refactored codebase to update copyright information, improve health check mechanisms, and enhance concurrency handling with atomic operations and mutexes. Bump Go version to 1.25 and optimize HTTP server configurations.
 - `2022-07-16` Fixed connection performance issues, added HTTP management interface
@@ -37,6 +38,11 @@ This produces `./socks5lb`. Docker Compose is also supported:
 ```bash
 docker compose build
 ```
+
+Source, Make, Task, and container builds default to version `1.4.0`.
+Use `make build VERSION=...`, `task build VERSION=...`, or Docker's `VERSION`
+build argument for an intentional override. GoReleaser derives release versions
+from Git tags.
 
 ## Configuration
 
@@ -181,7 +187,7 @@ Do not publish the management port without an appropriate access-control layer.
 
 Build metadata can be supplied with the `VERSION`, `BUILD_COMMIT`, and
 `BUILD_DATE` Docker build arguments; use a whitespace-free RFC 3339 date.
-Their defaults are `dev`, `unknown`, and `unknown`. `GOPROXY` retains the existing
+Their defaults are `1.4.0`, `unknown`, and `unknown`. `GOPROXY` retains the existing
 `https://goproxy.cn,direct` default and can be overridden at build time.
 Native releases retain their existing GoReleaser
 version metadata and Linux/macOS/Windows amd64/arm64 targets.

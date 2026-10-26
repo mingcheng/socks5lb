@@ -24,7 +24,7 @@ import (
 const AppName = "socks5lb"
 
 var (
-	Version     = "n/a"
+	Version     = "1.4.0"
 	BuildCommit = "n/a"
 	BuildDate   = "n/a"
 

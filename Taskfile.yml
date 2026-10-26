@@ -3,6 +3,7 @@ version: '3'
 vars:
   BINARY_NAME: socks5lb{{exeExt}}
   PACKAGE_NAME: github.com/mingcheng/socks5lb
+  VERSION: '1.4.0'
 
 tasks:
   default:
@@ -23,7 +24,7 @@ tasks:
         go build -o {{.BINARY_NAME}} -ldflags="
         -X '{{.PACKAGE_NAME}}.BuildCommit={{.GIT_COMMIT}}'
         -X '{{.PACKAGE_NAME}}.BuildDate={{now}}'
-        -X '{{.PACKAGE_NAME}}.Version={{now | date "2006-01-02"}}'"
+        -X '{{.PACKAGE_NAME}}.Version={{.VERSION}}'"
         ./cmd/socks5lb
     vars:
       GIT_COMMIT:

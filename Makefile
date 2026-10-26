@@ -2,7 +2,7 @@
 -include .env
 
 PROJECT=socks5lb
-VERSION=$(shell date +%Y%m%d)
+VERSION ?= 1.4.0
 COMMIT_HASH=$(shell git rev-parse --short HEAD)
 SRC=./cmd/$(PROJECT)
 BINARY=$(PROJECT)
