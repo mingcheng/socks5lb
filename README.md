@@ -16,6 +16,7 @@ The library also retains a deprecated Linux transparent proxy API with SOCKS5 pr
 
 ## Changelog
 
+- `2026-10-26` Added automated GitHub Releases with GoReleaser, providing Linux, macOS, and Windows binaries for amd64 and arm64, bundled example configuration, and SHA-256 checksums.
 - `2025-10-07` Refactored codebase to update copyright information, improve health check mechanisms, and enhance concurrency handling with atomic operations and mutexes. Bump Go version to 1.25 and optimize HTTP server configurations.
 - `2022-07-16` Fixed connection performance issues, added HTTP management interface
 - `2022-07-06` Completed Linux transparent gateway functionality

@@ -1,5 +1,6 @@
 *~
 /build
+/dist
 /target
 /vendor
 /*.json

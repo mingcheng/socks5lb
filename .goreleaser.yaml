@@ -1,0 +1,45 @@
+version: 2
+
+project_name: socks5lb
+
+builds:
+  - id: socks5lb
+    main: ./cmd/socks5lb
+    binary: socks5lb
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - >-
+        -s -w
+        -X github.com/mingcheng/socks5lb.Version={{ .Version }}
+        -X github.com/mingcheng/socks5lb.BuildCommit={{ .Commit }}
+        -X github.com/mingcheng/socks5lb.BuildDate={{ .Date }}
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - LICENSE
+      - README.md
+      - socks5lb.yml
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+release:
+  prerelease: auto
