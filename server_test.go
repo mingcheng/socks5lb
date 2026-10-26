@@ -1,6 +1,7 @@
 package socks5lb
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -57,7 +58,7 @@ func TestServerStopBeforeStart(t *testing.T) {
 	require.NoError(t, (&Server{}).Stop())
 }
 
-func tcpConnPair(t *testing.T) (*net.TCPConn, *net.TCPConn) {
+func tcpConnPair(t testing.TB) (*net.TCPConn, *net.TCPConn) {
 	t.Helper()
 
 	listener, err := net.ListenTCP("tcp", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
@@ -90,7 +91,7 @@ func tcpConnPair(t *testing.T) (*net.TCPConn, *net.TCPConn) {
 	return nil, nil
 }
 
-func receiveError(t *testing.T, result <-chan error) error {
+func receiveError(t testing.TB, result <-chan error) error {
 	t.Helper()
 	select {
 	case err := <-result:
@@ -299,6 +300,43 @@ func TestCopyStreamPreservesCopyError(t *testing.T) {
 	copyStream(closedWriteStream{Writer: io.Discard}, iotest.ErrReader(wantErr), result)
 	require.ErrorIs(t, normalizeTransportError(<-result), wantErr)
 }
+
+func TestCopyDataBufferUsage(t *testing.T) {
+	payload := bytes.Repeat([]byte("payload"), BufferSize)
+	for _, mode := range []string{"writer-to", "reader-from", "buffered"} {
+		t.Run(mode, func(t *testing.T) {
+			original := bufferPool
+			allocations := 0
+			bufferPool = &sync.Pool{New: func() any {
+				allocations++
+				return new([BufferSize]byte)
+			}}
+			t.Cleanup(func() { bufferPool = original })
+
+			var output bytes.Buffer
+			var reader io.Reader = bytes.NewReader(payload)
+			var writer io.Writer = &output
+			if mode != "writer-to" {
+				reader = readerOnly{reader}
+			}
+			if mode != "reader-from" {
+				writer = writerOnly{writer}
+			}
+			n, err := copyData(writer, reader)
+			require.NoError(t, err)
+			require.Equal(t, int64(len(payload)), n)
+			require.Equal(t, payload, output.Bytes())
+			if mode == "buffered" {
+				require.Equal(t, 1, allocations)
+			} else {
+				require.Zero(t, allocations, "fast paths must not borrow a copy buffer")
+			}
+		})
+	}
+}
+
+type readerOnly struct{ io.Reader }
+type writerOnly struct{ io.Writer }
 
 type failingReadConn struct {
 	net.Conn

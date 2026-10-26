@@ -17,7 +17,7 @@ package socks5lb
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -25,13 +25,22 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Pool selects healthy backends from an address-sorted membership snapshot.
+// A Pool must not be copied after first use.
 type Pool struct {
-	current  atomic.Uint64
-	backends map[string]*Backend
-	lock     sync.RWMutex // Use RWMutex for better read concurrency
+	current       atomic.Uint64
+	backends      map[string]*Backend
+	lock          sync.Mutex
+	snapshot      atomic.Pointer[backendSnapshot]
+	selectionPool sync.Pool
 }
 
-// Add add a backend to the pool
+type backendSnapshot struct {
+	backends []*Backend
+}
+
+// Add adds a backend to the pool. Its configuration must not be mutated afterward;
+// use SetAlive to update health, or remove and re-add a replacement configuration.
 func (b *Pool) Add(backend *Backend) error {
 	return b.addBackends([]*Backend{backend})
 }
@@ -60,6 +69,7 @@ func (b *Pool) addBackends(backends []*Backend) error {
 	for _, backend := range backends {
 		b.backends[backend.Addr] = backend
 	}
+	b.publishSnapshot()
 	return nil
 }
 
@@ -72,43 +82,53 @@ func (b *Pool) Remove(addr string) (err error) {
 		return fmt.Errorf("backend %s does not exist", addr)
 	}
 	delete(b.backends, addr)
+	b.publishSnapshot()
 	return
 }
 
-// All returns all backends in the pool
-func (b *Pool) All() (backends []*Backend) {
-	b.lock.RLock()
-
-	// Preallocate slice with exact capacity to avoid resizing
-	backends = make([]*Backend, 0, len(b.backends))
-	for _, v := range b.backends {
-		backends = append(backends, v)
+// publishSnapshot is called with b.lock held. Published slices are immutable.
+func (b *Pool) publishSnapshot() {
+	backends := make([]*Backend, 0, len(b.backends))
+	for _, backend := range b.backends {
+		backends = append(backends, backend)
 	}
-	b.lock.RUnlock()
-	sort.Slice(backends, func(i, j int) bool {
-		return backends[i].Addr < backends[j].Addr
+	slices.SortFunc(backends, func(a, b *Backend) int {
+		return strings.Compare(a.Addr, b.Addr)
 	})
-	return
+	b.snapshot.Store(&backendSnapshot{backends: backends})
+}
+
+func (b *Pool) members() []*Backend {
+	if snapshot := b.snapshot.Load(); snapshot != nil {
+		return snapshot.backends
+	}
+	return nil
+}
+
+// All returns an address-sorted copy of the pool's membership.
+func (b *Pool) All() []*Backend {
+	return append([]*Backend{}, b.members()...)
 }
 
 // AllHealthy returns all healthy backends from the pool
-func (b *Pool) AllHealthy() (backends []*Backend) {
-	all := b.All()
-	backends = all[:0]
-	for _, v := range all {
-		if v.Alive() {
-			backends = append(backends, v)
+func (b *Pool) AllHealthy() []*Backend {
+	members := b.members()
+	return appendHealthy(make([]*Backend, 0, len(members)), members, nil)
+}
+
+func appendHealthy(dst, members []*Backend, excluded map[string]struct{}) []*Backend {
+	for _, backend := range members {
+		if _, skip := excluded[backend.Addr]; !skip && backend.Alive() {
+			dst = append(dst, backend)
 		}
 	}
-	return
+	return dst
 }
 
 // NextIndex returns the next index for load balancer round-robin algorithm
 // Uses atomic operations for thread-safe index management
 func (b *Pool) NextIndex() int {
-	b.lock.RLock()
-	backendCount := len(b.backends)
-	b.lock.RUnlock()
+	backendCount := len(b.members())
 
 	if backendCount == 0 {
 		return 0
@@ -120,17 +140,42 @@ func (b *Pool) NextIndex() int {
 // Next returns the next available healthy backend using round-robin algorithm
 // Returns nil if no healthy backend is available
 func (b *Pool) Next() *Backend {
-	// Get all healthy backends
-	backends := b.AllHealthy()
-	log.Tracef("found %d available backends", len(backends))
+	return b.next(nil)
+}
 
-	// No backends available
+func (b *Pool) next(excluded map[string]struct{}) *Backend {
+	members := b.members()
+	if len(members) == 0 {
+		return nil
+	}
+	var selection *[]*Backend
+	if cached := b.selectionPool.Get(); cached != nil {
+		selection = cached.(*[]*Backend)
+	} else {
+		selection = new([]*Backend)
+	}
+	defer b.releaseSelection(selection)
+	if cap(*selection) < len(members) {
+		*selection = make([]*Backend, 0, len(members))
+	}
+	*selection = appendHealthy((*selection)[:0], members, excluded)
+	backends := *selection
+	if log.IsLevelEnabled(log.TraceLevel) {
+		log.Tracef("found %d available backends", len(backends))
+	}
+
 	if len(backends) == 0 {
 		return nil
 	}
 
 	next := b.current.Add(1) - 1
 	return backends[next%uint64(len(backends))]
+}
+
+func (b *Pool) releaseSelection(selection *[]*Backend) {
+	clear(*selection)
+	*selection = (*selection)[:0]
+	b.selectionPool.Put(selection)
 }
 
 // Check performs health checks on all backends in the pool

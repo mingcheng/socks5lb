@@ -191,6 +191,34 @@ Removes a specific proxy backend by address using the `addr` query parameter:
 curl -X "DELETE" "http://localhost:8080/api/delete?addr=192.168.1.1:1086"
 ```
 
+## Testing and performance
+
+Use the pinned Go toolchain, `gofmt`, `go vet`, and the existing test/race targets:
+
+```sh
+mise exec -- make check
+mise exec -- go test -run '^$' -bench 'Benchmark(PoolNext|Transport)' -benchmem -count=5 .
+```
+
+The benchmarks cover serial/parallel selection at different backend counts and
+round-trip TCP forwarding with different payload sizes. Reported forwarding
+bytes count both directions. Compare results on the same machine with matching
+CPU limits, Go versions, payloads, and concurrency; these loopback benchmarks
+are not predictions of WAN throughput or production connection capacity.
+Allocation assertions run without `-race`, because race instrumentation
+intentionally discards `sync.Pool` entries; functional/concurrency tests still
+run with the race detector.
+Use Go's benchmark CPU/memory profiling flags and `go tool pprof` when needed.
+For deployment load tests, also record active connections, descriptors/handles,
+RSS, connection-establishment p95/p99, and recovery time after backend failures.
+
+The hot path preserves `io.WriterTo`/`io.ReaderFrom` and TCP half-closes, so Go can
+use OS-specific optimizations (including Linux `splice`) and its portable
+fallbacks. User-space copy buffers are borrowed only when neither fast-copy
+interface exists. Avoid wrappers that hide those interfaces or `CloseWrite`.
+Pool membership is sorted only when it changes; selection reuses temporary
+storage while reading the current atomic health state.
+
 ## FAQ
 
 ### How do I disable health checks for a specific backend?

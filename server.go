@@ -36,7 +36,7 @@ const (
 
 var (
 	// bufferPool reuses buffers to reduce GC pressure
-	bufferPool = sync.Pool{
+	bufferPool = &sync.Pool{
 		New: func() any {
 			return new([BufferSize]byte)
 		},
@@ -53,7 +53,8 @@ type Status struct {
 	FailedTimes       uint
 }
 
-// Server represents the main SOCKS5 load balancer server
+// Server represents the main SOCKS5 load balancer server.
+// A Server must not be copied after first use.
 type Server struct {
 	Pool   *Pool
 	Config *ServerConfig
@@ -308,10 +309,7 @@ func (s *Server) Transport(dst, src io.ReadWriter) (err error) {
 }
 
 func copyStream(dst io.Writer, src io.Reader, errs chan<- error) {
-	buf := bufferPool.Get().(*[BufferSize]byte)
-	defer bufferPool.Put(buf)
-
-	_, err := io.CopyBuffer(dst, src, buf[:])
+	_, err := copyData(dst, src)
 	if closeWriter, ok := dst.(interface{ CloseWrite() error }); ok {
 		if closeErr := closeWriter.CloseWrite(); err == nil {
 			err = closeErr
@@ -320,6 +318,18 @@ func copyStream(dst io.Writer, src io.Reader, errs chan<- error) {
 		closeReadWriter(dst)
 	}
 	errs <- err
+}
+
+func copyData(dst io.Writer, src io.Reader) (int64, error) {
+	if _, ok := src.(io.WriterTo); ok {
+		return io.Copy(dst, src)
+	}
+	if _, ok := dst.(io.ReaderFrom); ok {
+		return io.Copy(dst, src)
+	}
+	buf := bufferPool.Get().(*[BufferSize]byte)
+	defer bufferPool.Put(buf)
+	return io.CopyBuffer(dst, src, buf[:])
 }
 
 func closeReadWriter(value any) {

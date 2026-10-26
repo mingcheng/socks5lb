@@ -162,3 +162,54 @@ func TestPoolHealthCheckDoesNotHoldLock(t *testing.T) {
 	require.Equal(t, "new", pool.Next().Addr)
 	require.Equal(t, 0, pool.NextIndex())
 }
+
+func TestPoolSnapshotsAndImmediateHealthChanges(t *testing.T) {
+	pool := NewPool()
+	require.NotNil(t, pool.All())
+	require.NotNil(t, pool.AllHealthy())
+	for _, addr := range []string{"c", "a", "b"} {
+		require.NoError(t, pool.Add(NewBackend(addr, BackendCheckConfig{InitialAlive: true})))
+	}
+	snapshot := pool.All()
+	require.Equal(t, []string{"a", "b", "c"}, []string{snapshot[0].Addr, snapshot[1].Addr, snapshot[2].Addr})
+	snapshot[0] = nil
+	require.Equal(t, "a", pool.All()[0].Addr, "callers must not mutate the published slice")
+
+	backends := pool.All()
+	backends[1].SetAlive(false)
+	for range 3 {
+		first, second := pool.Next(), pool.Next()
+		require.NotEqual(t, "b", first.Addr)
+		require.NotEqual(t, "b", second.Addr)
+		require.NotEqual(t, first.Addr, second.Addr)
+	}
+	backends[1].SetAlive(true)
+	seen := make(map[string]bool)
+	for range 3 {
+		seen[pool.Next().Addr] = true
+	}
+	require.Len(t, seen, 3)
+
+	require.NoError(t, pool.Remove("a"))
+	require.Len(t, backends, 3)
+	require.Equal(t, "a", backends[0].Addr, "membership changes must not modify older snapshots")
+	require.Len(t, pool.All(), 2)
+	require.Error(t, pool.addBackends([]*Backend{NewBackend("new", BackendCheckConfig{}), backends[1]}))
+	require.Len(t, pool.All(), 2, "rejected batches must not publish partial membership")
+}
+
+func TestPoolNextExcludesAttemptedBackends(t *testing.T) {
+	pool := NewPool([]Backend{
+		{Addr: "a", CheckConfig: BackendCheckConfig{InitialAlive: true}},
+		{Addr: "b", CheckConfig: BackendCheckConfig{InitialAlive: true}},
+	})
+	excluded := make(map[string]struct{})
+	first := pool.next(excluded)
+	require.NotNil(t, first)
+	excluded[first.Addr] = struct{}{}
+	second := pool.next(excluded)
+	require.NotNil(t, second)
+	require.NotEqual(t, first.Addr, second.Addr)
+	excluded[second.Addr] = struct{}{}
+	require.Nil(t, pool.next(excluded))
+}
